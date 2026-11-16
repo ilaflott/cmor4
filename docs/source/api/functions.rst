@@ -3,14 +3,15 @@ Functions
 
 .. currentmodule:: cmor
 
-Main API functions for creating and writing CF-compliant datasets.
+:func:`cmorize` is the main entry point. It validates metadata and data and
+writes one variable to a NetCDF file.
 
 Dataset Creation
 ----------------
 
-.. autofunction:: create_dataset
-
 .. autofunction:: cmorize
+
+.. autofunction:: create_dataset
 
 File I/O
 --------

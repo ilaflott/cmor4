@@ -11,37 +11,59 @@ from ._metadata import CoercedF, MetadataModel, StrSeq
 
 
 class ZFactor(MetadataModel):
-    """Metadata and values for one hybrid-coordinate formula term.
+    """Values and metadata for one formula term of a hybrid vertical coordinate.
 
-    Construct via :meth:`ProjectTables.zfactor` to merge authoritative
-    formula-table metadata::
+    Usually built with :meth:`ProjectTables.zfactor`, which fills these
+    fields from the formula-terms table::
 
-        zf = project.zfactor("ps", values=surface_pressure)
+        ps = project.zfactor("ps", values=surface_pressure)
+
+    See :doc:`/usage/vertical_coordinates` for a full example.
 
     Parameters
     ----------
     name:
-        Formula-term name.
+        Formula-term name, such as ``"a"``, ``"b"``, or ``"ps"``.
     values:
-        Formula-term data values.
+        Values of the term: a scalar or an array.
     dimensions:
-        Logical dimensions for the formula-term variable.
-    units, standard_name, long_name:
-        CF / NetCDF attributes.
+        Dimension names, in the order of ``values``.
+    units:
+        Units of the term's values, such as ``"Pa"``. A value you give must
+        match the table.
+    standard_name:
+        CF standard name, such as ``"surface_air_pressure"``.
+    long_name:
+        Human-readable description of the term.
     out_name:
-        Output variable name.
-    table_entry, formula_entry:
-        Formula table entry name selectors.
+        Name of the term's variable in the output file.
+    table_entry:
+        Formula-table entry to use, if different from ``name``. Takes
+        priority over ``formula_entry``.
+    formula_entry:
+        Alternative to ``table_entry``.
     bounds:
-        Optional formula-term bounds values.
-    bounds_name, bounds_dim:
-        Output bounds variable name / dimension.
+        Bounds of the term, for terms that apply to level bounds.
+    bounds_name:
+        Name of the bounds variable in the output file. Defaults to
+        ``"<out_name>_bnds"``.
+    bounds_dim:
+        Name of the bounds variable's second dimension (the one that holds
+        each cell's lower and upper bound). Defaults to ``"bnds"``.
     bounds_attrs:
         Extra attributes for the bounds variable.
-    valid_min, valid_max, ok_min_mean_abs, ok_max_mean_abs:
-        Data-quality limits.
+    valid_min:
+        Smallest expected value. CMOR warns about values below it.
+    valid_max:
+        Largest expected value. CMOR warns about values above it.
+    ok_min_mean_abs:
+        Smallest expected mean of the absolute values, checked as for
+        :class:`Variable`.
+    ok_max_mean_abs:
+        Largest expected mean of the absolute values, checked as for
+        :class:`Variable`.
     attrs:
-        Extra NetCDF attributes.
+        Extra attributes for the term's variable.
     """
 
     name: str

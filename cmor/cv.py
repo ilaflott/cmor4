@@ -13,20 +13,21 @@ from .exceptions import ControlledVocabularyError
 
 
 class ControlledVocabulary:
-    """Project controlled vocabulary with defaulting and validation helpers.
+    """A project's controlled vocabulary (CV): allowed global attributes.
+
+    :class:`ProjectTables` loads the CV for you, so most code never uses
+    this class directly. Use it to apply CV defaults to dataset metadata or
+    check metadata against a CV without project tables.
+
+    See :doc:`/usage/controlled_vocabularies` for how CMOR applies a CV.
 
     Parameters
     ----------
     data : Mapping[str, Any]
-        Controlled-vocabulary data, either as a raw CV mapping or a mapping
-        containing a top-level ``CV`` key.
+        The CV, either as the full JSON document (with a top-level ``CV``
+        key) or as the body of ``CV``.
     path : str or pathlib.Path, optional
-        Path to the source CV file, if loaded from disk.
-
-    Notes
-    -----
-    Use ``get_dataset_info`` to prepare metadata and ``validate_dataset_info``
-    to validate it. The typed CV components are internal implementation details.
+        File the CV was loaded from. Used in error messages.
     """
 
     _rules: dict[str, _cv_models.AttributeRule]
@@ -42,6 +43,7 @@ class ControlledVocabulary:
     _tracking_id: _cv_models.TrackingIdComponent
     _variant_label: _cv_models.VariantLabelComponent
     _grid_label: _cv_models.GridLabelComponent
+    #: Global attributes the CV requires.
     required_attributes: tuple[str, ...]
 
     def __init__(self, data: Mapping[str, Any], path: str | Path | None = None):
@@ -138,7 +140,7 @@ class ControlledVocabulary:
 
     @classmethod
     def from_file(cls, path: str | Path) -> "ControlledVocabulary":
-        """Load a controlled vocabulary from a JSON file.
+        """Load a CV from a JSON file.
 
         Parameters
         ----------
@@ -148,7 +150,12 @@ class ControlledVocabulary:
         Returns
         -------
         ControlledVocabulary
-            Loaded controlled-vocabulary helper.
+            The loaded CV.
+
+        Raises
+        ------
+        ControlledVocabularyError
+            If the file is not a valid CV.
         """
 
         cv_path = Path(path)
@@ -158,28 +165,26 @@ class ControlledVocabulary:
 
     @property
     def filename(self) -> str:
-        """Return the display name for this controlled vocabulary.
-
-        Returns
-        -------
-        str
-            Source filename when known, otherwise ``CV``.
-        """
+        """Name of the CV file, or ``"CV"`` if it was not loaded from a file."""
 
         return self.path.name if self.path is not None else "CV"
 
     def get_dataset_info(self, dataset: DatasetMetadata) -> DatasetMetadata:
-        """Get dataset info with CV defaults.
+        """Fill in dataset attributes from the CV.
+
+        Attributes you supplied are kept. See :ref:`cv-applying` for which
+        defaults are applied and in what order.
 
         Parameters
         ----------
         dataset:
-            Dataset metadata to normalize.
+            Dataset metadata.
 
         Returns
         -------
         DatasetMetadata
-            Dataset metadata with controlled-vocabulary defaults applied.
+            A new metadata object with CV defaults added. The input is not
+            changed.
         """
         normalized_dataset = dataset.to_dict()
         normalized_dataset.update(
@@ -262,26 +267,22 @@ class ControlledVocabulary:
     def validate_dataset_info(
         self, dataset: DatasetMetadata, *, check_required: bool = True
     ) -> None:
-        """Run all dataset metadata checks against the project CV.
+        """Check dataset attributes against the CV.
 
-        This includes controlled values, grid and variant labels, forcing,
-        derived attributes, source and experiment constraints, and parent
-        metadata. Experiment validation also checks source-type composition.
+        See :ref:`cv-applying` for the list of checks.
 
         Parameters
         ----------
         dataset:
-            Dataset metadata to validate.
+            Dataset metadata.
         check_required:
-            Whether to require every CV-listed global attribute. Set to
-            ``False`` during initial preparation, before variable-derived
-            attributes are available. All other checks still run, including
-            experiment-specific requirements for source and parent metadata.
+            If ``False``, skip the check that every required attribute is
+            present. All other checks still run.
 
-        Returns
-        -------
-        None
-            Raises ``ControlledVocabularyError`` if validation fails.
+        Raises
+        ------
+        ControlledVocabularyError
+            If any check fails.
         """
 
         values = dataset.to_dict()

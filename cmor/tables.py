@@ -27,42 +27,36 @@ from .zfactor import ZFactor
 
 
 class ProjectTables:
-    """Project CV and variable-table validator.
+    """Load a project's CV and tables and build metadata objects from them.
 
-    Parameters are paths to existing project table files. For example, CMIP7
-    can be loaded from ``cmip7-cmor-tables/tables-cvs/cmor-cvs.json``, one or
-    more variable tables under ``cmip7-cmor-tables/tables/``, and the project
-    coordinate and formula-term tables.
+    The methods :meth:`dataset_info`, :meth:`variable`, :meth:`axis`,
+    :meth:`grid`, and :meth:`zfactor` fill in metadata from the tables and
+    check what you supply. Pass the results to :func:`cmorize` or
+    :class:`DatasetWriter`.
 
-    Optional remapping tables (long_name_override_table, cell_measures_table)
-    provide context-specific variable metadata based on composite keys that
-    include realm, variable_id, branding suffix, frequency, and region. These
-    remappings are treated as effective variable-table values during
-    preparation and validation.
-
-    Use the factory methods below to prepare dataset metadata and components.
-    Dataset creation performs the remaining table checks and adds any required
-    fixed scalar axes automatically.
+    Most code creates this object with :meth:`from_directory`. See
+    :doc:`/usage/basic_usage` for an example.
 
     Parameters
     ----------
     cv_file
-        Path to the project controlled-vocabulary JSON file.
+        Path to the project controlled vocabulary (CV) JSON file.
     variable_tables
-        Paths to variable table JSON files.
+        Paths to one or more variable table JSON files.
     coordinate_table
-        Optional path to the coordinate table JSON file.
+        Path to the coordinate table JSON file.
     formula_table
-        Optional path to the formula-terms table JSON file.
+        Path to the formula-terms table JSON file. Needed for hybrid
+        vertical coordinates.
     grid_table
-        Optional path to the grids table JSON file.
+        Path to the grids table JSON file. Needed for curvilinear and
+        projected grids.
     long_name_override_table
-        Optional path to the long_name overrides table JSON file. Entries are
-        applied as contextual ``long_name`` table values.
+        Path to a table that sets ``long_name`` per context (for example,
+        by realm, frequency, or region).
     cell_measures_table
-        Optional path to the cell_measures table JSON file. Entries are applied
-        as contextual ``cell_measures`` table values, including explicit empty
-        strings.
+        Path to a table that sets ``cell_measures`` per context. An empty
+        string in this table removes the attribute.
     """
 
     def __init__(
@@ -117,36 +111,35 @@ class ProjectTables:
         long_name_override_table: str | Path | None = None,
         cell_measures_table: str | Path | None = None,
     ) -> "ProjectTables":
-        """Load tables using paths relative to a project root.
+        """Load a project's tables from paths relative to a root directory.
 
-        Optional remapping tables are resolved the same way as coordinate,
-        formula, and grid tables: explicit paths are interpreted relative to
-        ``root``; omitted paths are auto-discovered from ``tables`` or
-        ``Tables`` by suffix.
+        Paths you give are relative to ``root``. If you omit an optional
+        table, CMOR looks for it in ``root/tables`` or ``root/Tables``
+        by its file-name suffix (for example, ``*_coordinate.json``).
 
         Parameters
         ----------
         root
-            Project table root directory.
+            Root directory of the project tables.
         cv_file
-            Controlled-vocabulary file path relative to ``root``.
+            CV file path, relative to ``root``.
         variable_tables
-            Variable table paths relative to ``root``.
+            Variable table paths, relative to ``root``.
         coordinate_table
-            Optional coordinate table path relative to ``root``.
+            Coordinate table path, relative to ``root``.
         formula_table
-            Optional formula-terms table path relative to ``root``.
+            Formula-terms table path, relative to ``root``.
         grid_table
-            Optional grids table path relative to ``root``.
+            Grids table path, relative to ``root``.
         long_name_override_table
-            Optional long_name overrides table path relative to ``root``.
+            ``long_name`` overrides table path, relative to ``root``.
         cell_measures_table
-            Optional cell_measures table path relative to ``root``.
+            ``cell_measures`` table path, relative to ``root``.
 
         Returns
         -------
         ProjectTables
-            Loaded project table helper.
+            The loaded tables.
         """
 
         root_path = Path(root)
@@ -177,17 +170,28 @@ class ProjectTables:
         self,
         dataset: Mapping[str, Any] | DatasetMetadata,
     ) -> DatasetInfo:
-        """Create prepared dataset metadata from user input and tables.
+        """Build dataset metadata, filling defaults from the CV.
+
+        CMOR fills attributes the CV can derive (for example, from
+        ``source_id`` or ``experiment_id``) and checks the values you give.
+        Attributes that depend on the variable are checked later, when the
+        file is written. See :doc:`/usage/controlled_vocabularies`.
 
         Parameters
         ----------
         dataset
-            User-provided dataset-level metadata.
+            Global attributes and output options, as a mapping.
 
         Returns
         -------
         DatasetInfo
-            Validated and defaulted dataset metadata.
+            Dataset metadata to pass to :func:`cmorize` or
+            :class:`DatasetWriter`.
+
+        Raises
+        ------
+        ControlledVocabularyError
+            If a value is not allowed by the CV.
         """
 
         user_info = (
@@ -254,133 +258,76 @@ class ProjectTables:
         return prepared_dataset, variable
 
     def variable(self, name: str, **values: Any) -> Variable:
-        """Create a variable with metadata from the loaded variable tables.
+        """Build variable metadata from the variable tables.
 
-        This factory method creates a ``Variable`` metadata record by resolving
-        the variable name against loaded tables and merging table metadata with
-        user-provided values. Table metadata (units, standard_name, dimensions,
-        etc.) are authoritative and will override conflicting user values. User
-        values are used for data-specific attributes like missing_value.
+        Table values (units, dimensions, ``standard_name``, and so on) fill in
+        anything you do not supply.
 
         Parameters
         ----------
         name
-            Variable name or branded variable name to resolve in the loaded
-            tables. Can be a simple variable name (e.g., "tas") or a branded
-            name with suffix (e.g., "tas_ann-lev-reg-mean").
+            Variable name (``"tas"``) or branded variable name
+            (``"tas_tavg-h2m-hxy-u"``).
         **values
-            Optional user-supplied variable metadata. Common keywords include
-            missing_value, fill_value, chunksizes, valid_min, valid_max,
-            ok_min_mean_abs, ok_max_mean_abs, coordinates, and attrs for
-            additional NetCDF attributes.
+            Any :class:`Variable` field, such as ``table_id`` (to choose a
+            table when the name is in more than one), ``missing_value``, or
+            ``attrs``.
 
         Returns
         -------
         Variable
-            Variable metadata record with table values merged and validated.
+            Variable metadata.
 
         Raises
         ------
         TableValidationError
-            If the variable name is not found in loaded tables, if the name is
-            ambiguous across multiple tables without specifying table_id, or if
-            user-supplied metadata conflicts with table requirements.
+            If the name is not in the tables, is in more than one table and
+            ``table_id`` is not given, or a value conflicts with the table.
 
-        Examples
+        See Also
         --------
-        Create a simple variable from table::
-
-            project = ProjectTables.from_directory(...)
-            variable = project.variable("tas")
-            # Returns Variable with units="K",
-            # dimensions=("time", "lat", "lon")
-
-        Create variable with data-specific attributes::
-
-            variable = project.variable(
-                "tas",
-                missing_value=-999.0,
-                valid_min=200.0,
-                valid_max=330.0
-            )
-
-        Disambiguate variable across tables::
-
-            variable = project.variable("tas", table_id="Amon")
-            # Uses monthly atmospheric table specifically
+        :doc:`/usage/basic_usage` : Examples, including missing values.
         """
 
         request = Variable.model_validate({"name": name, **values})
         return self.variable_table.build(request)
 
     def axis(self, name: str, **values: Any) -> Axis:
-        """Create an axis with metadata from the loaded coordinate tables.
+        """Build an axis from the coordinate tables.
 
-        This factory method creates an ``Axis`` metadata record by resolving
-        the axis name against loaded coordinate and grid tables, merging table
-        metadata with user-provided values. The created axis is marked as
-        prepared by this ProjectTables instance for efficient validation later.
+        Table values (units, ``standard_name``, valid range, and so on) fill
+        in anything you do not supply, and CMOR checks the coordinate values
+        and bounds.
 
         Parameters
         ----------
         name
-            Axis or coordinate table entry name. Can be a standard coordinate
-            name (e.g., "time", "lat", "lon"), a generic level name (e.g.,
-            "alevel", "plev"), or a grid coordinate name.
+            Coordinate table entry name, such as ``"time"``, ``"latitude"``,
+            ``"plev19"``, or a generic level such as ``"alevel"``.
         **values
-            User-supplied axis metadata and coordinate values. Required keyword
-            is typically ``values`` for the coordinate array. Optional keywords
-            include bounds, units, standard_name, out_name, dimensions (for
-            auxiliary coordinates), scalar, valid_min, valid_max, and various
-            table entry selectors (table_entry, axis_entry, coordinate).
+            Any :class:`Axis` field. Usually ``values`` and ``bounds``. Time
+            axes also need ``units`` with a reference date, and may set
+            ``calendar``.
 
         Returns
         -------
         Axis
-            Axis metadata record with table values merged and marked as
-            prepared by this ProjectTables instance.
+            Axis metadata and values.
 
         Raises
         ------
         TableValidationError
-            If the axis name matches multiple generic level entries without
-            disambiguation, or if user-supplied metadata conflicts with table
-            requirements.
+            If ``name`` matches more than one generic level entry, or a value
+            conflicts with the table.
         AxisValidationError
-            If coordinate values or bounds are invalid (non-monotonic,
-            out-of-range, inconsistent shapes).
+            If the values or bounds are invalid (for example, not monotonic or
+            out of range).
 
-        Examples
+        See Also
         --------
-        Create a time axis::
-
-            project = ProjectTables.from_directory(...)
-            time_axis = project.axis(
-                "time",
-                values=[0, 31, 59, 90],
-                bounds=[[0, 31], [31, 59], [59, 90], [90, 120]],
-                calendar="standard",
-                frequency="mon",
-            )
-
-        Create a latitude axis from table::
-
-            lat_axis = project.axis("lat", values=np.linspace(-90, 90, 180))
-
-        Create a pressure level axis::
-
-            plev_axis = project.axis(
-                "plev",
-                values=[100000, 92500, 85000, 70000, 50000, 25000, 10000]
-            )
-
-        Disambiguate generic level with standard_name::
-
-            alevel_axis = project.axis(
-                "alevel",
-                standard_name="altitude",
-                values=[10, 50, 100, 500, 1000]
-            )
+        :doc:`/usage/basic_usage` : Basic axes.
+        :doc:`/usage/time_coordinates` : Time axes and calendars.
+        :doc:`/usage/vertical_coordinates` : Pressure and hybrid levels.
         """
 
         request = Axis.model_validate({"name": name, **values})
@@ -491,80 +438,39 @@ class ProjectTables:
         axes: Sequence[Axis] = (),
         **values: Any,
     ) -> Grid:
-        """Create a grid with metadata from the loaded grid table.
+        """Build a grid from the grid table.
 
-        This factory method creates a ``Grid`` metadata record for variables
-        on non-rectilinear grids or with coordinate reference systems.  It
-        resolves grid mapping entries from the project's grid table and merges
-        projection parameters with user-provided values.
-
-        When *axes* are supplied the grid owns those :class:`Axis` objects as
-        its indexing dimensions.  Each axis is validated against the grid
-        table's ``axis_entry`` section and flagged ``isgridaxis=True``.  The
-        ``dimensions`` tuple is derived automatically from the axis
-        ``out_name`` values so it need not be supplied separately.
+        Use a grid for data on a curvilinear grid or a map projection. Pass
+        the grid's index axes in ``axes`` (curvilinear grids), or a grid
+        mapping ``name`` with ``params`` (projections), or both.
 
         Parameters
         ----------
         name
-            Optional grid mapping entry name (e.g.,
-            ``"lambert_conformal_conic"``, ``"rotated_latitude_longitude"``).
-            If ``None``, the grid must specify mapping metadata via other
-            parameters.
+            Grid mapping entry in the grid table, such as
+            ``"lambert_conformal_conic"``. Omit it for a grid with no map
+            projection.
         axes
-            :class:`Axis` objects that form the grid's indexing dimensions
-            (e.g. ``i_index``, ``j_index``).  Each must correspond to an
-            entry in the grid table's ``axis_entry`` section.  Pass an empty
-            sequence (the default) for grids that use only ``dimensions``
-            names or have no spatial index axes.
+            Index axes for the grid (for example, ``j_index`` and
+            ``i_index``), built with :meth:`axis`. The grid's dimensions are
+            taken from these axes.
         **values
-            User-supplied grid metadata.  Common keywords include
-            ``dimensions`` (string names, when not derived from *axes*),
-            ``mapping_name`` / ``grid_mapping_name``, ``params`` (projection
-            parameters dict), ``coordinates`` (auxiliary coordinate names),
-            ``mapping_var`` (grid mapping variable name), ``latitude``,
-            ``longitude``, ``latitude_vertices``, ``longitude_vertices``, and
-            ``attrs`` for additional attributes.
+            Any :class:`Grid` field, such as ``latitude``, ``longitude``,
+            ``latitude_vertices``, ``longitude_vertices``, or ``params``.
 
         Returns
         -------
         Grid
-            Grid metadata record with table values and projection parameters
-            merged.  When *axes* is non-empty the returned ``Grid.axes``
-            contains updated copies of the supplied axes with
-            ``isgridaxis=True``.
+            Grid metadata.
 
         Raises
         ------
         TableValidationError
-            If any supplied axis name is not present in the grid table's
-            ``axis_entry`` section.
+            If an axis is not an index axis in the grid table.
 
-        Examples
+        See Also
         --------
-        Axis-based curvilinear ocean grid::
-
-            project = ProjectTables.from_directory(...)
-            i_axis = project.axis("i_index", values=np.arange(192))
-            j_axis = project.axis("j_index", values=np.arange(144))
-
-            grid = project.grid(
-                axes=[j_axis, i_axis],
-                latitude=lat_2d,
-                longitude=lon_2d,
-                latitude_vertices=blat_3d,
-                longitude_vertices=blon_3d,
-            )
-
-        Name-based rotated pole grid::
-
-            grid = project.grid(
-                "rotated_latitude_longitude",
-                params={
-                    "grid_north_pole_latitude": (37.5, "degrees_north"),
-                    "grid_north_pole_longitude": (-177.5, "degrees_east"),
-                },
-            )
+        :doc:`/usage/grids` : Curvilinear and projected grid examples.
         """
         requested = str(
             values.get("table_entry") or values.get("mapping_entry") or name or ""
@@ -611,73 +517,36 @@ class ProjectTables:
         return self.grid_table.build(Grid.model_validate(data))
 
     def zfactor(self, name: str, **values: Any) -> ZFactor:
-        """Create a z-factor with metadata from formula-term tables.
+        """Build a formula term for a hybrid vertical coordinate.
 
-        This factory method creates a ``ZFactor`` metadata record for
-        hybrid-coordinate formula terms (e.g., coefficients for hybrid
-        sigma-pressure coordinates). It resolves the formula term name against
-        the loaded formula table and merges table metadata with user values.
+        Table values (units, ``long_name``, and so on) fill in anything you
+        do not supply. For example, hybrid sigma-pressure levels need the
+        terms ``a``, ``b``, ``p0``, and ``ps``.
 
         Parameters
         ----------
         name
-            Formula-term table entry name (e.g., "ap", "b", "ps", "p0",
-            "orog").
+            Formula-term table entry name, such as ``"a"``, ``"b"``, or
+            ``"ps"``.
         **values
-            User-supplied formula-term metadata and values. Required keyword is
-            typically ``values`` or ``data`` for the formula term array.
-            Optional keywords include dimensions, bounds, out_name, valid_min,
-            valid_max, ok_min_mean_abs, ok_max_mean_abs, and attrs for
-            additional NetCDF attributes.
+            Any :class:`ZFactor` field. Usually ``values``, ``bounds``, and
+            ``dimensions``.
 
         Returns
         -------
         ZFactor
-            Formula-term metadata record with table values merged and
-            validated.
+            Formula-term metadata and values.
 
         Raises
         ------
         TableValidationError
-            If user-supplied metadata conflicts with table requirements.
+            If a value conflicts with the table.
         VariableValidationError
-            If formula term values fail validation checks.
+            If the values fail the table's range checks.
 
-        Notes
-        -----
-        Formula terms are required for variables on hybrid vertical
-        coordinates. The most common case is hybrid sigma-pressure coordinates
-        which require ``ap``, ``b``, ``ps``, and optionally ``p0`` terms.
-
-        Examples
+        See Also
         --------
-        Create hybrid sigma-pressure formula terms::
-
-            project = ProjectTables.from_directory(...)
-
-            # Hybrid coefficient a (Pa)
-            ap = project.zfactor("ap", values=[0, 2000, 5000, 10000])
-
-            # Hybrid coefficient b (dimensionless)
-            b = project.zfactor("b", values=[1.0, 0.95, 0.90, 0.80])
-
-            # Surface pressure (Pa) - 3D field
-            ps = project.zfactor(
-                "ps",
-                values=surface_pressure_3d,
-                dimensions=("time", "lat", "lon")
-            )
-
-            # Reference pressure (Pa) - scalar
-            p0 = project.zfactor("p0", values=100000.0)
-
-        Create orography term for ocean coordinates::
-
-            orog = project.zfactor(
-                "orog",
-                values=ocean_depth,
-                dimensions=("lat", "lon")
-            )
+        :doc:`/usage/vertical_coordinates` : Hybrid coordinate examples.
         """
 
         request = ZFactor.model_validate({"name": name, **values})

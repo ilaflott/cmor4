@@ -21,78 +21,104 @@ if TYPE_CHECKING:
 
 
 class Axis(MetadataModel):
-    """Metadata and coordinate values for one data axis.
+    """Coordinate values and metadata for one axis.
 
-    Construct via :meth:`ProjectTables.axis` to merge authoritative
-    coordinate-table metadata::
+    Usually built with :meth:`ProjectTables.axis`, which fills these fields
+    from the coordinate table::
 
-        axis = project.axis("latitude", values=np.linspace(-90, 90, 180))
+        axis = project.axis("latitude", values=np.linspace(-89.5, 89.5, 180))
 
-    Construct directly when project tables are not available::
+    You can also build one directly if you are not using project tables::
 
-        axis = Axis(name="latitude", values=np.linspace(-90, 90, 180),
+        axis = Axis(name="latitude", values=np.linspace(-89.5, 89.5, 180),
                     units="degrees_north", axis="Y")
+
+    Most fields below are filled from the coordinate table. You normally
+    supply only ``values`` and ``bounds``. Time axes also need ``units``
+    with a reference date (``"days since 1850-01-01"``), because the table
+    leaves it open, and may set ``calendar``.
 
     Parameters
     ----------
     name:
-        Logical axis name matching a variable dimension.
+        Axis name. Must match one of the variable's dimensions.
     values:
-        Coordinate values (list, numpy array, scalar).
+        Coordinate values: a scalar, list, or array.
     bounds:
-        Optional coordinate cell bounds.
+        Cell bounds, shape ``(N, 2)``.
     dimensions:
-        Underlying dimensions for auxiliary coordinates.
+        Dimensions of a multi-dimensional (auxiliary) coordinate.
     units:
-        CF units string.
-    standard_name, long_name:
-        CF / NetCDF attributes.
+        Units of the coordinate values. Set by the table for most axes; a
+        value you give must match it. For time, give the reference date,
+        such as ``"days since 1850-01-01"``.
+    standard_name:
+        CF standard name, such as ``"latitude"`` or ``"air_pressure"``.
+    long_name:
+        Human-readable description of the coordinate.
     axis:
-        CF axis designator — ``"X"``, ``"Y"``, ``"Z"``, or ``"T"``.
-        Lower-case inputs are automatically upper-cased.
+        CF axis type: ``"X"``, ``"Y"``, ``"Z"``, or ``"T"``.
     positive:
-        CF ``"up"`` or ``"down"`` for vertical axes.
+        ``"up"`` or ``"down"``, for vertical axes.
     formula:
-        Formula for computing coordinate values.
-    valid_min, valid_max:
-        Valid coordinate value range.
+        Formula for a parametric vertical coordinate, from the table.
+    valid_min:
+        Smallest allowed coordinate value.
+    valid_max:
+        Largest allowed coordinate value.
     out_name:
-        Output coordinate variable name.
-    table_entry, axis_entry, coordinate:
-        Coordinate-table entry name selectors, tried in order.
-    grid_table_entry, grid_coordinate:
-        Grid coordinate-table entry selectors.
+        Name of the coordinate variable in the output file.
+    table_entry:
+        Coordinate-table entry to use, if different from ``name``. Takes
+        priority over ``axis_entry`` and ``coordinate``.
+    axis_entry:
+        Alternative to ``table_entry``.
+    coordinate:
+        Alternative to ``table_entry``; used only if neither
+        ``table_entry`` nor ``axis_entry`` is given.
+    grid_table_entry:
+        Grid-table entry to use, for grid index axes such as ``i_index``.
+        Takes priority over ``grid_coordinate``.
+    grid_coordinate:
+        Alternative to ``grid_table_entry``.
     scalar:
-        Write as a scalar coordinate.
+        If ``True``, write the axis as a scalar coordinate (no dimension).
     auxiliary:
-        Write as an auxiliary coordinate.
+        If ``True``, write the axis as an auxiliary coordinate, listed in
+        the variable's ``coordinates`` attribute.
     auxiliary_name:
-        Output name for the auxiliary coordinate variable.
+        Name of the auxiliary coordinate variable.
     auxiliary_attrs:
-        Extra attributes for the auxiliary variable.
+        Extra attributes for the auxiliary coordinate variable.
     climatology:
-        Climatology bounds control.
+        If ``True``, write the bounds as CF climatology bounds.
     generic_level_name:
-        Generic level selector.
-    z_factors, z_bounds_factors:
-        Formula-term names for this axis.
-    bounds_name, bounds_dim:
-        Output bounds variable name / dimension name.
+        Generic level name from the table, such as ``"alevel"``.
+    z_factors:
+        Formula terms that convert the coordinate values to pressure or
+        height, such as ``"ap: ap b: b ps: ps"``. Written as the
+        ``formula_terms`` attribute. See :doc:`/usage/vertical_coordinates`.
+    z_bounds_factors:
+        Formula terms for the coordinate bounds, in the same form as
+        ``z_factors``, such as ``"ap: ap_bnds b: b_bnds ps: ps"``.
+    bounds_name:
+        Name of the bounds variable in the output file. Defaults to
+        ``"<out_name>_bnds"`` (``"climatology_bnds"`` for climatology bounds).
+    bounds_dim:
+        Name of the bounds variable's second dimension (the one that holds
+        each cell's lower and upper bound). Defaults to ``"bnds"``.
     bounds_attrs:
         Extra attributes for the bounds variable.
     attrs:
         Extra attributes for the coordinate variable.
     calendar:
-        CF calendar for an absolute time coordinate; sampling time axes default
-        to ``standard``. Forecast reference axes inherit it during assembly.
-        Supply this field directly; ``attrs["calendar"]`` is not supported.
+        CF calendar of a time axis. Defaults to ``"standard"``. Set it here,
+        not in ``attrs``. See :doc:`/usage/time_coordinates`.
     frequency:
-        Sampling frequency for the time axis. Defaults to the variable table
-        frequency during dataset assembly and must agree with it when supplied.
-        Written as a dataset global attribute, not a coordinate attribute.
+        Sampling frequency of a time axis. Defaults to the variable's
+        frequency and must match it if given. Written as a global attribute.
     stored_direction:
-        Expected ordering of coordinate values: ``"increasing"`` or
-        ``"decreasing"``.
+        Required order of the values: ``"increasing"`` or ``"decreasing"``.
     """
 
     name: str

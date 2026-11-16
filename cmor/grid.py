@@ -44,67 +44,64 @@ _DEFAULT_HORIZONTAL_DIMS: frozenset[str] = frozenset({
 
 
 class Grid(MetadataModel):
-    """Runtime grid dimensions and optional CF grid-mapping metadata.
+    """Grid for data on a curvilinear grid or a map projection.
 
-    Grid objects may be constructed in two ways:
+    Usually built with :meth:`ProjectTables.grid`. A grid can have either
+    or both of:
 
-    **Axis-based** — supply ``axes`` with already-created :class:`~cmor.Axis`
-    instances.  The grid owns those axes as its indexing dimensions; it
-    derives ``dimensions`` from them automatically and marks each axis with
-    ``isgridaxis=True``.  This is the recommended path for curvilinear and
-    unstructured grids::
+    - **Index axes and 2-D coordinates**, for curvilinear grids. Pass the
+      grid's index axes in ``axes``, and the 2-D ``latitude`` and
+      ``longitude`` arrays (and optionally their cell vertices).
+    - **A grid mapping**, for map projections. Pass the mapping ``name``
+      and its ``params``. CMOR writes a CF grid-mapping variable.
 
-        i_axis = project.axis("i_index", values=np.arange(192))
-        j_axis = project.axis("j_index", values=np.arange(144))
+    If you give no ``axes``, list the grid's dimension names in
+    ``dimensions`` instead.
 
-        grid = project.grid(
-            axes=[j_axis, i_axis],
-            latitude=lat_2d,
-            longitude=lon_2d,
-            latitude_vertices=blat_3d,
-            longitude_vertices=blon_3d,
-        )
-
-    **Name-based** — supply ``dimensions`` as a tuple of string names.  The
-    grid references axes that the caller keeps separately, matched by name at
-    validation time.  Useful for grid-mapping-only grids with no curvilinear
-    lat/lon::
-
-        grid = project.grid(
-            dimensions=("y", "x"),
-            mapping_name="lambert_azimuthal_equal_area",
-            params={...},
-        )
+    See :doc:`/usage/grids` for examples of both.
 
     Parameters
     ----------
     axes:
-        Ordered :class:`~cmor.Axis` objects that form the grid's indexing
-        dimensions.  When supplied, ``dimensions`` is derived from them and
-        each axis is flagged ``isgridaxis=True``.
+        Index axes of the grid, in the order of the data dimensions. The
+        grid's ``dimensions`` are taken from these.
     dimensions:
-        Spatial (non-time) dimension names.  Derived automatically from
-        ``axes`` when ``axes`` is provided; supply explicitly when using the
-        name-based path.
-    name, table_entry, mapping_entry:
-        Grid table entry name selectors.
+        Names of the grid's horizontal dimensions. Only needed when
+        ``axes`` is not given.
+    name:
+        Grid-mapping entry in the grid table, such as
+        ``"lambert_conformal_conic"``.
+    table_entry:
+        Alternative to ``name``. Takes priority over ``mapping_entry`` and
+        ``name``.
+    mapping_entry:
+        Alternative to ``name``. Takes priority over ``name``.
     mapping_var:
-        Name of the scalar grid-mapping variable to write.
-    mapping_name, grid_mapping_name:
-        CF ``grid_mapping_name``.
+        Name of the grid-mapping variable in the output file. Defaults to
+        ``"crs"``.
+    mapping_name:
+        CF ``grid_mapping_name`` to write, such as
+        ``"lambert_conformal_conic"``. Defaults to the table's value; a
+        value you give must match it.
+    grid_mapping_name:
+        Alternative to ``mapping_name``.
     coordinates:
-        Auxiliary coordinate names.
+        Names of auxiliary coordinates for the ``coordinates`` attribute.
     params:
-        Grid-mapping parameter dict.  Each value may be a scalar or a
+        Grid-mapping parameters. Each value is a number or a
         ``(value, units)`` tuple.
     attrs:
-        Extra NetCDF attributes for the grid-mapping variable.
-    latitude, longitude:
-        Optional 2-D geographic coordinate arrays on the grid.
-    latitude_vertices, longitude_vertices:
-        Optional cell-vertex arrays (shape ``(*spatial, n_vertices)``).
+        Extra attributes for the grid-mapping variable.
+    latitude:
+        2-D array of the latitude of each grid cell center.
+    longitude:
+        2-D array of the longitude of each grid cell center.
+    latitude_vertices:
+        Latitude of each cell's corners, shape ``(*grid_shape, n_vertices)``.
+    longitude_vertices:
+        Longitude of each cell's corners, shape ``(*grid_shape, n_vertices)``.
     vertices_dim:
-        Name for the vertices dimension (default ``"vertices"``).
+        Name of the vertices dimension. Defaults to ``"vertices"``.
     """
 
     axes: list[Axis] = Field(default_factory=list)
