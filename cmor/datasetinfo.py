@@ -11,16 +11,15 @@ from ._metadata import DatasetMetadata
 
 
 class DatasetInfo(DatasetMetadata):
-    """Validated/defaulted dataset metadata ready for writing.
+    """Dataset metadata with CV defaults applied, ready for writing.
 
-    Parameters
-    ----------
-    project : ProjectTables, optional
-        :class:`~cmor.tables.ProjectTables` that prepared this record.
-        Excluded from metadata serialization.
-    user_info : dict, optional
-        Original user-supplied metadata before CV defaults were applied.
-        Excluded from metadata serialization.
+    Returned by :meth:`ProjectTables.dataset_info`; pass it to
+    :func:`cmorize` or :class:`DatasetWriter`. Read fields as attributes
+    (``info.source_id``). Use ``info.to_dict()`` to get all global
+    attributes, including project-specific ones, as a dictionary.
+
+    See :doc:`/usage/controlled_vocabularies` for how the defaults are
+    filled.
     """
 
     project: Any = Field(default=None, exclude=True, repr=False)

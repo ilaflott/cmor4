@@ -45,66 +45,37 @@ def create_dataset(
     encoding: Mapping[str, Any] | None = None,
     **to_netcdf_kwargs: Any,
 ) -> Path:
-    """Create and write a CF-compliant NetCDF file from metadata objects.
+    """Validate metadata and data, then write one variable to a NetCDF file.
 
-    When ``dataset`` was created by :meth:`ProjectTables.dataset_info`, this
-    function uses the associated project tables to fill dataset-level defaults,
-    add required scalar axes, validate table metadata for the supplied
-    ``Variable``, ``Axis``, ``Grid``, and ``ZFactor`` records, validate the
-    final global attributes, and verify that the generated xarray dataset
-    contains the expected variables.
-
-    For CMIP7 datasets, CMIP7-compliant chunking is automatically applied unless
-    user-provided chunking is specified. User-provided chunking for CMIP7
-    datasets is validated for compliance with cloud-optimization requirements.
+    Identical to :func:`cmorize`; see it for full details.
 
     Parameters
     ----------
     dataset:
-        Prepared dataset metadata created by ``ProjectTables.dataset_info``.
+        Dataset metadata.
     variable:
-        Main variable metadata created by ``ProjectTables.variable``.
+        Variable metadata.
     axes:
-        Coordinate axes with ``name``, ``values``, optional ``bounds``,
-        optional ``dimensions`` for auxiliary coordinates, and optional
-        ``scalar`` for scalar coordinates.
+        Coordinate axes.
     data:
-        Main variable data.
+        Data values.
     zfactors:
-        Optional hybrid-coordinate formula-term variables.
+        Formula terms for a hybrid vertical coordinate.
     grid:
-        Optional runtime grid dimensions and grid-mapping metadata.
+        Grid for curvilinear or projected data.
     path:
-        Explicit output path. If omitted, the path is rendered from
-        metadata.
+        Output file path.
     attrs:
         Extra global attributes.
     encoding:
-        Optional encoding parameters (chunksizes, compression, etc.) to apply
-        to variables. For CMIP7 datasets, user-provided chunksizes are validated
-        for compliance.
+        NetCDF encoding options.
     **to_netcdf_kwargs:
-        Additional keyword arguments forwarded to ``xarray.Dataset.to_netcdf``.
+        Passed to :meth:`xarray.Dataset.to_netcdf`.
 
     Returns
     -------
     pathlib.Path
-        Path to the written NetCDF file.
-
-    Raises
-    ------
-    AxisValidationError
-        If coordinate values or bounds are inconsistent with axis metadata.
-    TableValidationError
-        If project-backed metadata does not match the loaded project tables.
-    ControlledVocabularyError
-        If final global attributes are missing required values or contain
-        values that are not allowed by the project controlled vocabulary.
-    VariableValidationError
-        If data values violate variable validation limits.
-    ValueError
-        If the data shape or final dataset structure is inconsistent with the
-        requested metadata, or if CMIP7 chunking requirements are not met.
+        Path to the written file.
     """
 
     ctx = _assembly.validate_metadata(dataset, variable, axes, zfactors, grid)
@@ -142,36 +113,36 @@ def write_netcdf(
     path: str | Path | None = None,
     **to_netcdf_kwargs: Any,
 ) -> Path:
-    """Write a dataset to NetCDF and return the resolved path.
+    """Write an xarray dataset to NetCDF.
+
+    Most users call :func:`cmorize` instead, which builds the dataset and
+    then calls this function.
 
     Parameters
     ----------
     ds:
         Dataset to write.
     dataset:
-        Dataset metadata used to build the default output path.  When the
-        metadata contains ``create_subdirectories=False``, the output
-        directory must already exist; CMOR will not create it.  The default
-        behaviour (``create_subdirectories=True``) mirrors CMOR's original
-        behaviour and creates the full directory tree automatically.
+        Dataset metadata. Used to build the default path and to read
+        ``create_subdirectories``.
     variable:
-        Variable metadata used to build the default output path.
+        Variable metadata. Used to build the default path.
     path:
-        Explicit output path. If omitted, the path is rendered from dataset
-        and variable metadata.
+        Output file path. If omitted, CMOR builds it with
+        :func:`build_output_path`.
     **to_netcdf_kwargs:
-        Additional keyword arguments forwarded to ``xarray.Dataset.to_netcdf``.
+        Passed to :meth:`xarray.Dataset.to_netcdf`.
 
     Returns
     -------
     pathlib.Path
-        Path to the written NetCDF file.
+        Path to the written file.
 
     Raises
     ------
     ValueError
-        When ``create_subdirectories=False`` and the output directory does
-        not already exist.
+        If ``create_subdirectories`` is ``False`` and the output directory
+        does not exist. By default CMOR creates missing directories.
     """
 
     output_path = (
@@ -193,41 +164,62 @@ def cmorize(
     encoding: Mapping[str, Any] | None = None,
     **to_netcdf_kwargs: Any,
 ) -> Path:
-    """Create and write a CF-compliant NetCDF file from metadata objects.
+    """Validate metadata and data, then write one variable to a NetCDF file.
 
-    For CMIP7 datasets, CMIP7-compliant chunking is automatically applied unless
-    user-provided chunking is specified via the encoding parameter.
+    When the inputs come from :class:`ProjectTables`, CMOR checks them
+    against the project tables and controlled vocabulary, fills default
+    global attributes, and adds any scalar coordinates the table requires.
+    Objects created directly skip the table and CV checks.
+
+    See :doc:`/usage/basic_usage` for a complete example.
 
     Parameters
     ----------
     dataset:
-        Dataset-level metadata.
+        Dataset metadata from :meth:`ProjectTables.dataset_info`.
     variable:
-        Main variable metadata.
+        Metadata for the variable to write, usually from
+        :meth:`ProjectTables.variable`.
     axes:
-        Coordinate axes for the variable.
+        One :class:`Axis` per variable dimension, plus any auxiliary or
+        scalar coordinates.
     data:
-        Main variable data values.
+        Array of data values. Its shape must match the variable dimensions.
     zfactors:
-        Optional formula-term variables for hybrid coordinates.
+        Formula terms for a hybrid vertical coordinate. See
+        :doc:`/usage/vertical_coordinates`.
     grid:
-        Optional runtime grid dimensions and grid-mapping metadata.
+        Grid for curvilinear or projected data. See :doc:`/usage/grids`.
     path:
-        Explicit output path. If omitted, the path is rendered from
-        metadata.
+        Output file path. If omitted, CMOR builds it with
+        :func:`build_output_path`.
     attrs:
-        Extra global attributes to include in the output dataset.
+        Extra global attributes to add to the file.
     encoding:
-        Optional encoding parameters (chunksizes, compression, etc.) to apply
-        to variables. For CMIP7 datasets, user-provided chunksizes are validated
-        for compliance.
+        NetCDF encoding options, keyed by output variable name. For CMIP7,
+        CMOR sets chunk sizes automatically; chunk sizes you supply are
+        checked against the CMIP7 rules.
     **to_netcdf_kwargs:
-        Additional keyword arguments forwarded to ``xarray.Dataset.to_netcdf``.
+        Passed to :meth:`xarray.Dataset.to_netcdf`.
 
     Returns
     -------
     pathlib.Path
-        Path to the written NetCDF file.
+        Path to the written file.
+
+    Raises
+    ------
+    TableValidationError
+        If the metadata does not match the project tables.
+    AxisValidationError
+        If coordinate values or bounds are invalid.
+    VariableValidationError
+        If data values fail the variable's range or missing-value checks.
+    ControlledVocabularyError
+        If a global attribute is missing or not allowed by the CV.
+    ValueError
+        If the data shape does not match the dimensions, or chunk sizes do
+        not meet the CMIP7 rules.
     """
 
     return create_dataset(
@@ -245,19 +237,19 @@ def cmorize(
 
 
 def open_dataset(path: str | Path, **kwargs: Any) -> xr.Dataset:
-    """Open a NetCDF file with xarray.
+    """Open a NetCDF file with :func:`xarray.open_dataset`.
 
     Parameters
     ----------
     path:
         Path to the NetCDF file.
     **kwargs:
-        Additional keyword arguments forwarded to ``xarray.open_dataset``.
+        Passed to :func:`xarray.open_dataset`.
 
     Returns
     -------
-    xr.Dataset
-        Opened dataset.
+    xarray.Dataset
+        The opened dataset.
     """
 
     return xr.open_dataset(path, **kwargs)
@@ -268,33 +260,34 @@ def build_output_path(
     variable: Variable,
     ds: xr.Dataset | None = None,
 ) -> Path:
-    """Build an output path from dataset and variable metadata.
+    """Build the output file path from dataset and variable metadata.
 
-    Template resolution follows a three-level priority chain that mirrors
-    CMOR3's behaviour (added in CMOR 3.12):
+    The directory and file name come from templates. CMOR uses the first of
+    these that is set:
 
-    1. **User-supplied** — ``output_path_template`` / ``output_file_template``
-       keys in the dataset metadata.  These take highest priority.
-    2. **CV DRS section** — ``directory_path_template`` /
-       ``filename_template`` from the CV's ``DRS`` block, when present.
-       All three project CVs shipped with CMOR (CMIP7, DRCDP) carry a
-       ``DRS`` section; obs4MIPs does not.
-    3. **Hard-coded defaults** — ``DEFAULT_OUTPUT_PATH_TEMPLATE`` and
-       ``DEFAULT_OUTPUT_FILE_TEMPLATE``.
+    1. ``output_path_template`` and ``output_file_template`` in the dataset
+       metadata.
+    2. ``directory_path_template`` and ``filename_template`` in the
+       ``DRS`` section of the CV. See :ref:`cv-special-sections`.
+    3. CMOR's built-in default templates.
+
+    The path is relative to the dataset's ``outpath`` (default: the current
+    directory).
 
     Parameters
     ----------
     dataset:
-        Dataset-level metadata containing output templates and DRS tokens.
+        Dataset metadata.
     variable:
-        Variable metadata used for filename tokens.
+        Variable metadata.
     ds:
-        Optional dataset used to derive time-range tokens.
+        Dataset to read the time range from, for the ``<time_range>``
+        token. If omitted, the file name has no time range.
 
     Returns
     -------
     pathlib.Path
-        Rendered output path, including the ``.nc`` filename.
+        Full path to the output ``.nc`` file.
     """
 
     if ds is not None and ds.attrs.get("frequency"):

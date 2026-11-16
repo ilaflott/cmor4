@@ -29,49 +29,93 @@ PositiveLiteral = Annotated[
 
 
 class Variable(MetadataModel):
-    """Metadata for the data variable being written.
+    """Metadata for the variable being written.
 
-    Construct via :meth:`ProjectTables.variable` to merge authoritative
-    table metadata (units, standard_name, dimensions, etc.)::
+    Usually built with :meth:`ProjectTables.variable`, which fills these
+    fields from the variable table::
 
         variable = project.variable("tas")
 
-    Construct directly when no project tables are needed::
+    You can also build one directly if you are not using project tables::
 
-        variable = Variable(name="tas", units="K")
+        variable = Variable(name="tas", units="K", dimensions=("time", "lat", "lon"))
 
     Parameters
     ----------
     name:
-        Variable or branded-variable name.
-    id, variable_id:
-        Output variable identifier (override).
+        Variable name or branded variable name.
+    id:
+        Name of the variable in the output file. Defaults to the table's
+        ``out_name``, or the part of ``name`` before the first ``_``. A value
+        you give must match the table.
+    variable_id:
+        Alternative to ``id``; ``id`` is used if both are given. Also
+        written as the ``variable_id`` global attribute.
     table_id:
-        Table identifier when the same variable appears in multiple tables.
+        Table to use when the variable is in more than one table.
     dimensions:
-        Ordered logical dimensions, coerced to a ``tuple[str, ...]``.
+        Dimension names, in the order of the data array.
     units:
-        CF units string.
-    standard_name, long_name, cell_methods, cell_measures, comment:
-        Standard CF / NetCDF attributes.
-    flag_values, flag_meanings:
-        CF flag-encoding attributes.
-    missing_value, fill_value:
-        Missing-value sentinel.
-    chunksizes, chunks:
-        NetCDF chunk sizes, coerced to ``tuple[int, ...]``.
+        Units of the data.
+    standard_name:
+        CF standard name, such as ``"air_temperature"``.
+    long_name:
+        Human-readable description of the variable.
+    cell_methods:
+        CF ``cell_methods``: how values were computed over each cell, such
+        as ``"area: time: mean"``.
+    cell_measures:
+        CF ``cell_measures``: the variable that holds cell areas or volumes,
+        such as ``"area: areacella"``.
+    comment:
+        Free-text notes about the variable.
+    flag_values:
+        Values used in flag (category) data, such as ``[0, 1, 2]``.
+    flag_meanings:
+        Space-separated meaning of each flag value, in the same order as
+        ``flag_values``.
+    missing_value:
+        Value that marks missing data. CMOR skips these points when it checks
+        the data, and writes the value as ``_FillValue`` and
+        ``missing_value``.
+    fill_value:
+        Alternative to ``missing_value``; ``missing_value`` is used if both
+        are given.
+    chunksizes:
+        NetCDF chunk size for each dimension. Chunk sizes in ``encoding``
+        take priority.
+    chunks:
+        Alternative to ``chunksizes``; ``chunksizes`` is used if both are
+        given.
     coordinates:
-        Explicit ``coordinates`` attribute.
+        Value for the ``coordinates`` attribute. CMOR normally sets it.
     formula_terms:
-        Explicit ``formula_terms`` attribute.
+        Value for the ``formula_terms`` attribute. CMOR normally sets it.
     positive:
-        CF vertical-positive direction: ``"up"`` or ``"down"``.
-    frequency, realm, table_info:
-        Project-table metadata fields.
-    valid_min, valid_max, ok_min_mean_abs, ok_max_mean_abs:
-        Data-quality limits, coerced from strings when necessary.
+        ``"up"`` or ``"down"``, for vertical fluxes.
+    frequency:
+        Sampling frequency, such as ``"mon"``. Written as the ``frequency``
+        global attribute.
+    realm:
+        Model component, such as ``"atmos"`` or ``"ocean"``. Written as the
+        ``realm`` global attribute.
+    table_info:
+        Description of the table file the variable came from. Written as the
+        ``table_info`` global attribute.
+    valid_min:
+        Smallest expected data value. CMOR warns about values below it.
+    valid_max:
+        Largest expected data value. CMOR warns about values above it.
+    ok_min_mean_abs:
+        Smallest expected mean of the absolute data values. CMOR warns if
+        the mean is below it, and raises an error if the mean is less than
+        a tenth of it.
+    ok_max_mean_abs:
+        Largest expected mean of the absolute data values. CMOR warns if the
+        mean is above it, and raises an error if the mean is more than 10
+        times it.
     attrs:
-        Additional NetCDF variable attributes.
+        Extra attributes to write on the variable.
     """
 
     name: str

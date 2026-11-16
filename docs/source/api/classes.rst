@@ -1,7 +1,10 @@
 Classes
 =======
 
-CMOR provides several classes for managing metadata and validation:
+Most code uses :class:`ProjectTables` to build the other objects, then
+passes them to :func:`cmorize` or :class:`DatasetWriter`.
+
+.. currentmodule:: cmor
 
 .. toctree::
    :maxdepth: 1
