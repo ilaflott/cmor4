@@ -51,8 +51,10 @@ import re
 import json
 import tempfile
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from unittest.mock import patch
 
 import numpy as np
 
@@ -1259,13 +1261,14 @@ class TestCmip6DatasetRoundtrip(unittest.TestCase):
     def test_creation_date_is_iso8601_format(self) -> None:
         """The creation_date attribute is in ISO 8601 UTC format."""
         with tempfile.TemporaryDirectory() as tmp:
-            info = self.project.dataset_info(_amip_attrs(tmp))
+            with patch("cmor.cv.datetime") as mock_datetime:
+                mock_datetime.now.return_value = datetime(
+                    2026, 1, 2, 3, 4, 5, tzinfo=timezone.utc
+                )
+                info = self.project.dataset_info(_amip_attrs(tmp))
+                mock_datetime.now.assert_called_once_with(timezone.utc)
             creation_date = info.to_dict().get("creation_date", "")
-            self.assertRegex(
-                creation_date,
-                r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$",
-                f"creation_date format is wrong: {creation_date!r}",
-            )
+            self.assertEqual(creation_date, "2026-01-02T03:04:05Z")
 
     def test_two_sequential_datasets_get_unique_tracking_ids(self) -> None:
         """Each dataset_info call generates a unique tracking_id."""

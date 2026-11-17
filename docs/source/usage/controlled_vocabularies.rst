@@ -203,8 +203,7 @@ once defaults have been applied. CMOR can fill in some of them itself:
        value, or the last value in its list. With no usable CV value,
        ``CF-1.12``. See :ref:`cv-caveats` for a special case.
    * - ``creation_date``
-     - The current time, formatted ``YYYY-MM-DDTHH:MM:SSZ`` (see
-       :ref:`cv-caveats` about time zones).
+     - The current UTC time, formatted ``YYYY-MM-DDTHH:MM:SSZ``.
    * - ``variant_label``
      - Built from ``realization_index``, ``initialization_index``,
        ``physics_index`` and ``forcing_index`` (see :ref:`cv-variant-label`).
@@ -625,10 +624,6 @@ Templates copied as required defaults
 ``Conventions`` fallback
    If the last value in the CV's ``Conventions`` list looks like a regular
    expression, CMOR uses ``CF-1.7 CMIP-6.2`` as the default.
-
-``creation_date`` time zone
-   The value ends in ``Z`` (meaning UTC), but CMOR uses local time and does
-   not convert it to UTC.
 
 ``tracking_id_prefix`` written as an attribute
    If the CV's ``tracking_id_prefix`` is a string, CMOR also writes it as a

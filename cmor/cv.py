@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import uuid
 import warnings
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -240,7 +240,8 @@ class ControlledVocabulary:
             dataset.setdefault("Conventions", self._defaults.conventions)
         if "creation_date" in required:
             dataset.setdefault(
-                "creation_date", datetime.now().strftime("%Y-%m-%dT%H:%M:%SZ")
+                "creation_date",
+                datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
             )
         if "variant_label" in required:
             variant_label = self._variant_label.render(dataset)
