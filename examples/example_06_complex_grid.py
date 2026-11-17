@@ -97,7 +97,7 @@ def write_example(output_dir: Path) -> str:
         latitude_vertices=latitude_vertices,
         longitude_vertices=longitude_vertices,
         mapping_var="lambert_conformal_conic",
-        mapping_name="lambert_conformal_conic",
+        grid_mapping_name="lambert_conformal_conic",
         params={
             "standard_parallel1": [-20.0, ""],
             "longitude_of_central_meridian": [175.0, ""],

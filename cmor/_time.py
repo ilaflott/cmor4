@@ -152,8 +152,6 @@ def find_time_axis(axes: Sequence[Axis]) -> tuple[int, Axis]:
                 axis.name,
                 axis.out_name,
                 axis.table_entry,
-                axis.axis_entry,
-                axis.coordinate,
                 axis.standard_name,
             )
             if value

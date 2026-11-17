@@ -112,7 +112,7 @@ the curvilinear grid:
 
    grid = grid_project.grid(
        axes=[y, x], latitude=latitude, longitude=longitude,
-       mapping_name="lambert_conformal_conic",
+       grid_mapping_name="lambert_conformal_conic",
        params={
            "standard_parallel1": [-20.0, ""],
            "standard_parallel2": [20.0, ""],

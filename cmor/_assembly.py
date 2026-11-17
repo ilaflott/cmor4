@@ -61,9 +61,7 @@ def validate_metadata(
     axes = _merge_grid_axes(axes, grid)
     axis_dims = build_axis_dimension_map(axes)
     if grid is not None and (
-        grid.mapping_name
-        or grid.grid_mapping_name
-        or "grid_mapping_name" in grid.params
+        grid.grid_mapping_name or "grid_mapping_name" in grid.params
     ):
         validate_grid_mapping(None, grid)
 
@@ -526,8 +524,6 @@ def _axis_names(axis: Axis) -> tuple[str, ...]:
             axis.name,
             axis.out_name,
             axis.table_entry,
-            axis.axis_entry,
-            axis.coordinate,
         )
         if value
     )
