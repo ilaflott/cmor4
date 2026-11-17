@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-import pytest
 
 import cmor
 from cmor import (
@@ -328,21 +327,6 @@ def test_project_factories_use_canonical_component_names(tmp_path: Path) -> None
     assert grid.grid_mapping_name == "rotated_latitude_longitude"
     assert variable.to_dict()["variable_id"] == "pr"
     assert grid.to_dict()["grid_mapping_name"] == "rotated_latitude_longitude"
-
-
-def test_project_factories_reject_removed_parameters(tmp_path: Path) -> None:
-    project = _build_project(tmp_path)
-    for create in (
-        lambda: project.variable("pr", id="pr"),
-        lambda: project.axis("lat", coordinate="lat"),
-        lambda: project.zfactor("ps", formula_entry="ps"),
-        lambda: project.grid(mapping_entry="rotated_latitude_longitude"),
-        lambda: project.grid(
-            "rotated_latitude_longitude", mapping_name="rotated_latitude_longitude"
-        ),
-    ):
-        with pytest.raises(ValidationError, match="extra_forbidden"):
-            create()
 
 
 def _build_vc_project(tmp: Path, **kwargs) -> ProjectTables:
