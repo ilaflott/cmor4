@@ -168,7 +168,7 @@ class Cmor4Test(unittest.TestCase):
             values=100000.0,
         )
 
-        self.assertEqual(variable.id, "tos")
+        self.assertEqual(variable.variable_id, "tos")
         self.assertEqual(variable.units, "degC")
         self.assertEqual(variable.dimensions, ("time", "latitude", "longitude"))
         self.assertEqual(axis.out_name, "lat")
@@ -515,7 +515,7 @@ class Cmor4Test(unittest.TestCase):
                 cmor.Axis(name="x", values=[0.0]),
             ]
             grid = cmor.Grid(
-                mapping_name="stereographic",
+                grid_mapping_name="stereographic",
                 params={
                     "latitude_of_projection_origin": [100.0, "degrees_north"],
                     "longitude_of_projection_origin": [200.0, "degrees_east"],
@@ -563,7 +563,7 @@ class Cmor4Test(unittest.TestCase):
                 cmor.Axis(name="x", values=[0.0]),
             ]
             grid = cmor.Grid(
-                mapping_name="not_a_cf_mapping",
+                grid_mapping_name="not_a_cf_mapping",
                 params={"false_easting": 10.0},
             )
 
@@ -584,7 +584,7 @@ class Cmor4Test(unittest.TestCase):
                 table_id="atmos",
             )
             scalar_axes = self.project._scalar_axes_for(scalar_variable)
-            self.assertEqual(scalar_variable.id, "tas")
+            self.assertEqual(scalar_variable.variable_id, "tas")
             self.assertEqual([axis.name for axis in scalar_axes], ["height2m"])
             self.assertEqual(scalar_axes[0].values, [2.0])
 
@@ -867,7 +867,7 @@ class Cmor4Test(unittest.TestCase):
             )
             grid_info = self.project.dataset_info(base_info)
             grid = cmor.Grid(
-                mapping_name="lambert_azimuthal_equal_area",
+                grid_mapping_name="lambert_azimuthal_equal_area",
                 params={"latitude_of_projection_origin": [90.0, "degrees_north"]},
             )
 
@@ -984,7 +984,7 @@ class Cmor4Test(unittest.TestCase):
             ]
             grid = self.project.grid(
                 dimensions=["y", "x"],
-                mapping_name="lambert_azimuthal_equal_area",
+                grid_mapping_name="lambert_azimuthal_equal_area",
                 params={
                     "latitude_of_projection_origin": [90.0, "degrees_north"],
                     "longitude_of_projection_origin": [0.0, "degrees_east"],

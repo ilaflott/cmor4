@@ -2,10 +2,14 @@ from __future__ import annotations
 
 import json
 
+import numpy as np
 import pytest
+import xarray as xr
 from pydantic import ValidationError
 
 from cmor import Axis, DatasetInfo, Grid, Variable, ZFactor
+from cmor._metadata import DatasetMetadata
+from cmor._netcdf import apply_dataset_encoding
 from cmor._coordinate_tables import (
     CoordinateTableDocument,
     FormulaTableDocument,
@@ -97,6 +101,47 @@ def test_variable_document_attaches_source_provenance(tmp_path) -> None:
 def test_runtime_components_reject_unknown_constructor_fields(model, values) -> None:
     with pytest.raises(ValidationError, match="unexpected_field"):
         model.model_validate({**values, "unexpected_field": 1})
+
+
+@pytest.mark.parametrize(
+    ("model", "base", "removed", "value"),
+    (
+        (Variable, {"name": "tas"}, "id", "tas"),
+        (Variable, {"name": "tas"}, "fill_value", 0.0),
+        (Variable, {"name": "tas"}, "chunks", (2, 3)),
+        (Grid, {}, "table_entry", "rotated"),
+        (Grid, {}, "mapping_entry", "rotated"),
+        (Grid, {}, "mapping_name", "latitude_longitude"),
+        (Axis, {"name": "lat"}, "axis_entry", "latitude"),
+        (Axis, {"name": "lat"}, "coordinate", "latitude"),
+        (Axis, {"name": "i"}, "grid_coordinate", "i_index"),
+        (ZFactor, {"name": "ps"}, "formula_entry", "ps"),
+    ),
+)
+def test_removed_component_parameters_are_rejected(model, base, removed, value) -> None:
+    assert removed not in model.model_fields
+    with pytest.raises(ValidationError, match=removed):
+        model.model_validate({**base, removed: value})
+    with pytest.raises(ValidationError, match=removed):
+        model.model_validate(base).updated(**{removed: value})
+
+
+def test_canonical_encoding_names_produce_netcdf_output() -> None:
+    variable = Variable(
+        name="tas", variable_id="tas", missing_value=0.0, chunksizes=(2,)
+    )
+    dataset = xr.Dataset({"tas": (("x",), np.array([0.0, 1.0]))})
+    apply_dataset_encoding(dataset, DatasetMetadata(), variable, None)
+
+    assert dataset["tas"].attrs["missing_value"] == 0.0
+    assert dataset["tas"].encoding["_FillValue"] == 0.0
+    assert dataset["tas"].encoding["chunksizes"] == (2,)
+    assert (
+        Grid(grid_mapping_name="latitude_longitude").mapping_attributes()[
+            "grid_mapping_name"
+        ]
+        == "latitude_longitude"
+    )
 
 
 def test_dataset_info_has_an_explicit_serialization_boundary() -> None:

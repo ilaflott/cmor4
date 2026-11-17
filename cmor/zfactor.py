@@ -38,10 +38,7 @@ class ZFactor(MetadataModel):
     out_name:
         Name of the term's variable in the output file.
     table_entry:
-        Formula-table entry to use, if different from ``name``. Takes
-        priority over ``formula_entry``.
-    formula_entry:
-        Alternative to ``table_entry``.
+        Formula-table entry to use, if different from ``name``.
     bounds:
         Bounds of the term, for terms that apply to level bounds.
     bounds_name:
@@ -74,7 +71,6 @@ class ZFactor(MetadataModel):
     long_name: str | None = None
     out_name: str | None = None
     table_entry: str | None = None
-    formula_entry: str | None = None
     bounds: Any = None
     bounds_name: str | None = None
     bounds_dim: str | None = None

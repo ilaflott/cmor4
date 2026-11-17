@@ -71,20 +71,13 @@ class Grid(MetadataModel):
     name:
         Grid-mapping entry in the grid table, such as
         ``"lambert_conformal_conic"``.
-    table_entry:
-        Alternative to ``name``. Takes priority over ``mapping_entry`` and
-        ``name``.
-    mapping_entry:
-        Alternative to ``name``. Takes priority over ``name``.
     mapping_var:
         Name of the grid-mapping variable in the output file. Defaults to
         ``"crs"``.
-    mapping_name:
+    grid_mapping_name:
         CF ``grid_mapping_name`` to write, such as
         ``"lambert_conformal_conic"``. Defaults to the table's value; a
         value you give must match it.
-    grid_mapping_name:
-        Alternative to ``mapping_name``.
     coordinates:
         Names of auxiliary coordinates for the ``coordinates`` attribute.
     params:
@@ -107,10 +100,7 @@ class Grid(MetadataModel):
     axes: list[Axis] = Field(default_factory=list)
     dimensions: StrTuple = None
     name: str | None = None
-    table_entry: str | None = None
-    mapping_entry: str | None = None
     mapping_var: str | None = None
-    mapping_name: str | None = None
     grid_mapping_name: str | None = None
     coordinates: StrSeq = None
     params: dict[str, Any] = Field(default_factory=dict)
@@ -260,7 +250,7 @@ class Grid(MetadataModel):
             if coord_table is not None:
                 entry = coord_table.resolve_grid_coord({
                     "name": name,
-                    "grid_coordinate": name,
+                    "grid_table_entry": name,
                 }) or coord_table.resolve_coord({"name": name})
                 if entry is not None:
                     result: dict[str, Any] = {}
@@ -307,14 +297,12 @@ class Grid(MetadataModel):
     @property
     def has_mapping(self) -> bool:
         """True when this grid needs a CF grid-mapping variable."""
-        return bool(
-            self.mapping_name or self.grid_mapping_name or self.params or self.attrs
-        )
+        return bool(self.grid_mapping_name or self.params or self.attrs)
 
     def mapping_attributes(self) -> dict[str, Any]:
         """Return NetCDF attributes for the grid-mapping scalar variable."""
         attrs = self.netcdf_attrs(self.attrs)
-        mname = self.mapping_name or self.grid_mapping_name
+        mname = self.grid_mapping_name
         if mname:
             attrs["grid_mapping_name"] = mname
 
@@ -577,9 +565,9 @@ _GRID_MAPPING_ATTRIBUTES: dict[str, frozenset[str]] = {
 }
 
 
-def _allowed_grid_mapping_attributes(mapping_name: str) -> frozenset[str] | None:
-    """Return CF-1.12 attributes allowed for *mapping_name*, or ``None``."""
-    specific = _GRID_MAPPING_ATTRIBUTES.get(mapping_name)
+def _allowed_grid_mapping_attributes(grid_mapping_name: str) -> frozenset[str] | None:
+    """Return CF-1.12 attributes allowed for *grid_mapping_name*, or ``None``."""
+    specific = _GRID_MAPPING_ATTRIBUTES.get(grid_mapping_name)
     if specific is None:
         return None
     allowed = set(_COMMON_GRID_MAPPING_ATTRIBUTES)
@@ -598,7 +586,6 @@ def validate_grid_mapping(
 ) -> None:
     """Validate grid-mapping metadata against a grid-table mapping entry."""
     if isinstance(data, Grid):
-        mapping_name = data.mapping_name
         grid_mapping_name = data.grid_mapping_name
         params = dict(data.params)
         if dimensions is None:
@@ -606,30 +593,23 @@ def validate_grid_mapping(
         if not axes:
             axes = data.axes
     else:
-        mapping_name = data.get("mapping_name")
         grid_mapping_name = data.get("grid_mapping_name")
         params = dict(data.get("params") or {})
 
     entry_name = entry.name if entry is not None else None
     if entry is not None:
-        for key, value in (
-            ("mapping_name", mapping_name),
-            ("grid_mapping_name", grid_mapping_name),
-        ):
-            expected = getattr(entry, key)
-            if expected not in (None, "", [], ()) and value is not None:
-                if str(value) != str(expected):
-                    raise TableValidationError(
-                        f"grid mapping {entry.name!r} {key}={value!r} does "
-                        f"not match table value {expected!r}."
-                    )
+        expected = entry.grid_mapping_name
+        if expected not in (None, "", [], ()) and grid_mapping_name is not None:
+            if str(grid_mapping_name) != str(expected):
+                raise TableValidationError(
+                    f"grid mapping {entry.name!r} grid_mapping_name="
+                    f"{grid_mapping_name!r} does not match table value {expected!r}."
+                )
 
-    supplied_mapping_name = (
-        grid_mapping_name or mapping_name or params.get("grid_mapping_name")
-    )
+    supplied_mapping_name = grid_mapping_name or params.get("grid_mapping_name")
     table_mapping_name = None
     if entry is not None:
-        table_mapping_name = entry.grid_mapping_name or entry.mapping_name
+        table_mapping_name = entry.grid_mapping_name
         if (
             table_mapping_name is None
             and _allowed_grid_mapping_attributes(entry.name) is not None
@@ -770,8 +750,6 @@ def validate_grid_mapping(
                     for value in (
                         axis.name,
                         axis.table_entry,
-                        axis.axis_entry,
-                        axis.coordinate,
                         axis.out_name,
                         axis.generic_level_name,
                     )
@@ -878,8 +856,6 @@ def validate_grid_dimensions(
         for value in (
             axis.name,
             axis.table_entry,
-            axis.axis_entry,
-            axis.coordinate,
             axis.out_name,
             axis.generic_level_name,
         ):

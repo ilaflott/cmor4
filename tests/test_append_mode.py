@@ -123,7 +123,7 @@ def curvilinear_grid(
     )
     return project.grid(
         axes=[y_axis, x_axis],
-        mapping_name="lambert_azimuthal_equal_area",
+        grid_mapping_name="lambert_azimuthal_equal_area",
         params={
             "latitude_of_projection_origin": [mapping_latitude, "degrees_north"],
             "longitude_of_projection_origin": [0.0, "degrees_east"],

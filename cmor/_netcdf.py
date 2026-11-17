@@ -181,7 +181,7 @@ def apply_dataset_encoding(
     """Apply variable encoding, CMIP7 chunks, and coordinate fill-value rules."""
     data_array: Any
     var_name = variable.names()[0]
-    missing_value = variable.missing_value or variable.fill_value
+    missing_value = variable.missing_value
     if missing_value is not None:
         ds[var_name].attrs["missing_value"] = missing_value
         ds[var_name].encoding["_FillValue"] = missing_value
@@ -189,7 +189,7 @@ def apply_dataset_encoding(
     # Extract user-provided chunksizes for the data variable.
     # Priority: variable-specific encoding["var_name"]["chunksizes"] >
     #           top-level encoding["chunksizes"] >
-    #           variable metadata (chunksizes/chunks)
+    #           variable metadata (chunksizes)
     user_provided_chunks = None
     if encoding:
         var_encoding = encoding.get(var_name)
@@ -201,7 +201,7 @@ def apply_dataset_encoding(
             user_provided_chunks = encoding["chunksizes"]
 
     # Fallback to variable metadata for chunksizes if not in encoding
-    chunksizes = user_provided_chunks or variable.chunksizes or variable.chunks
+    chunksizes = user_provided_chunks or variable.chunksizes
 
     # For CMIP7 datasets, validate user-provided chunksizes meet the
     # ≥4 MiB requirement. Allow all other encoding parameters to pass through.

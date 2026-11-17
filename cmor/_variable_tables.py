@@ -218,9 +218,7 @@ class VariableTable:
         variable is not found or is ambiguous across tables.
         """
         data = request.to_dict() if isinstance(request, Variable) else dict(request)
-        requested = str(
-            data.get("name") or data.get("variable_id") or data.get("id") or ""
-        )
+        requested = str(data.get("name") or data.get("variable_id") or "")
         table_id = data.get("table_id")
 
         if requested in self._by_name:
@@ -342,10 +340,7 @@ class VariableTable:
             else dict(dataset or {})
         )
         variable_id = str(
-            entry.out_name
-            or variable.id
-            or variable.variable_id
-            or entry.name.split("_", 1)[0]
+            entry.out_name or variable.variable_id or entry.name.split("_", 1)[0]
         )
         branding_suffix = entry.name.split("_", 1)[1] if "_" in entry.name else ""
 
@@ -375,8 +370,7 @@ class VariableTable:
     def _merge(self, data: dict[str, Any], entry: VariableEntry) -> dict[str, Any]:
         """Copy *entry* defaults into *data*."""
         data.setdefault("name", entry.name)
-        data.setdefault("id", entry.out_name or entry.name.split("_", 1)[0])
-        data.setdefault("variable_id", data["id"])
+        data.setdefault("variable_id", entry.out_name or entry.name.split("_", 1)[0])
         data.setdefault("dimensions", entry.runtime_dimensions)
         data.setdefault("table_id", entry.table_id)
         if entry.table_file is not None:
@@ -433,14 +427,11 @@ class VariableTable:
         or ``""``; non-empty values are rejected.
         """
         out_name = str(entry.out_name or entry.name.split("_", 1)[0])
-        for attr, user_val in (
-            ("id", variable.id),
-            ("variable_id", variable.variable_id),
-        ):
-            if user_val is not None and str(user_val) != out_name:
-                raise TableValidationError(
-                    f"{attr}={user_val!r} does not match table out_name {out_name!r}."
-                )
+        if variable.variable_id is not None and str(variable.variable_id) != out_name:
+            raise TableValidationError(
+                f"variable_id={variable.variable_id!r} does not match "
+                f"table out_name {out_name!r}."
+            )
         expected_dims = entry.runtime_dimensions
         if (
             variable.dimensions is not None

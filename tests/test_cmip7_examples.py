@@ -954,7 +954,7 @@ class TestExample06ComplexGrid(unittest.TestCase):
             longitude=self._LON.T,
             latitude_vertices=lat_v,
             longitude_vertices=lon_v,
-            mapping_name="lambert_conformal_conic",
+            grid_mapping_name="lambert_conformal_conic",
             params={
                 "standard_parallel1": [-20.0, ""],
                 "longitude_of_central_meridian": [175.0, ""],

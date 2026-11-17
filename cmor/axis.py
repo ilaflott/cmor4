@@ -69,18 +69,9 @@ class Axis(MetadataModel):
     out_name:
         Name of the coordinate variable in the output file.
     table_entry:
-        Coordinate-table entry to use, if different from ``name``. Takes
-        priority over ``axis_entry`` and ``coordinate``.
-    axis_entry:
-        Alternative to ``table_entry``.
-    coordinate:
-        Alternative to ``table_entry``; used only if neither
-        ``table_entry`` nor ``axis_entry`` is given.
+        Coordinate-table entry to use, if different from ``name``.
     grid_table_entry:
         Grid-table entry to use, for grid index axes such as ``i_index``.
-        Takes priority over ``grid_coordinate``.
-    grid_coordinate:
-        Alternative to ``grid_table_entry``.
     scalar:
         If ``True``, write the axis as a scalar coordinate (no dimension).
     auxiliary:
@@ -135,10 +126,7 @@ class Axis(MetadataModel):
     valid_max: CoercedF = None
     out_name: str | None = None
     table_entry: str | None = None
-    axis_entry: str | None = None
-    coordinate: str | None = None
     grid_table_entry: str | None = None
-    grid_coordinate: str | None = None
     scalar: bool | None = None
     auxiliary: bool | None = None
     auxiliary_name: str | None = None
@@ -759,8 +747,6 @@ def _is_sampling_time_axis(axis: Axis) -> bool:
                 axis.name,
                 axis.out_name,
                 axis.table_entry,
-                axis.axis_entry,
-                axis.coordinate,
             )
             if name
         )

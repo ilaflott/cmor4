@@ -100,7 +100,6 @@ class ZFactorEntry(DimensionedTableEntry):
 class GridMappingEntry(NamedTableEntry):
     """One grid-mapping row, including extension-defined projection fields."""
 
-    mapping_name: str | None = None
     grid_mapping_name: str | None = None
     mapping_var: str | None = None
     coordinates: tuple[str, ...] = ()
@@ -324,13 +323,7 @@ class CoordinateTable:
         ``out_name``, and ``out_name`` + ``standard_name`` attribute match.
         """
         data = request.to_dict() if isinstance(request, Axis) else dict(request)
-        requested = str(
-            data.get("table_entry")
-            or data.get("axis_entry")
-            or data.get("coordinate")
-            or data.get("name")
-            or ""
-        )
+        requested = str(data.get("table_entry") or data.get("name") or "")
         entry = self._all_coord.get(requested)
         if entry is not None:
             return entry
@@ -343,7 +336,7 @@ class CoordinateTable:
             choices = ", ".join(n for n, _ in generic)
             raise TableValidationError(
                 f"Generic level {requested!r} matches multiple coordinate entries; "
-                f"specify table_entry or axis_entry.  Choices: {choices}."
+                f"specify table_entry.  Choices: {choices}."
             )
 
         by_out = [
@@ -367,7 +360,6 @@ class CoordinateTable:
         data = request.to_dict() if isinstance(request, Axis) else dict(request)
         requested = str(
             data.get("grid_table_entry")
-            or data.get("grid_coordinate")
             or data.get("out_name")
             or data.get("name")
             or ""
@@ -429,12 +421,11 @@ class CoordinateTable:
     def _build_data(self, data: dict[str, Any]) -> dict[str, Any]:
         """Merge coordinate-table defaults into serialized request data.
 
-        Handles the grid-coordinate path (``grid_coordinate=`` /
-        ``grid_table_entry=``) and the regular coordinate path, including
-        a second pass to overlay any matching grid-coordinate entry after
-        the main coordinate merge.
+        Handles the grid-coordinate path (``grid_table_entry=``) and the regular
+        coordinate path, including a second pass to overlay any matching
+        grid-coordinate entry after the main coordinate merge.
         """
-        if data.get("grid_coordinate") or data.get("grid_table_entry"):
+        if data.get("grid_table_entry"):
             axis_entry = self.resolve_grid_coord(data)
             if axis_entry is not None:
                 self._merge_grid_coord_fields(data, axis_entry)
@@ -624,12 +615,7 @@ class FormulaTable:
         Tries direct name match first, then ``out_name`` match.
         """
         data = request.to_dict() if isinstance(request, ZFactor) else dict(request)
-        requested = str(
-            data.get("table_entry")
-            or data.get("formula_entry")
-            or data.get("name")
-            or ""
-        )
+        requested = str(data.get("table_entry") or data.get("name") or "")
         entry = self._entries.get(requested)
         if entry is not None:
             return entry
@@ -827,25 +813,22 @@ class GridTable:
         return Grid.model_validate(data)
 
     def validate_metadata(self, grid: Grid, axes: Sequence[Axis]) -> None:
-        requested = str(grid.table_entry or grid.mapping_entry or grid.name or "")
+        requested = str(grid.name or "")
         _gm = self.resolve_mapping(requested) if requested else None
         entry_name, entry = (_gm.name, _gm) if _gm else (None, None)
         if entry is not None:
-            for key, user_val in (
-                ("mapping_name", grid.mapping_name),
-                ("grid_mapping_name", grid.grid_mapping_name),
+            expected = entry.grid_mapping_name
+            user_val = grid.grid_mapping_name
+            if (
+                expected is not None
+                and user_val is not None
+                and str(user_val) != str(expected)
             ):
-                expected = getattr(entry, key)
-                if (
-                    expected is not None
-                    and user_val is not None
-                    and str(user_val) != str(expected)
-                ):
-                    raise TableValidationError(
-                        f"grid mapping {entry_name!r} {key}="
-                        f"{user_val!r} does not match table value "
-                        f"{expected!r}."
-                    )
+                raise TableValidationError(
+                    f"grid mapping {entry_name!r} grid_mapping_name="
+                    f"{user_val!r} does not match table value "
+                    f"{expected!r}."
+                )
 
         # Validate dimensional axes and lat/lon shape consistency.
         grid_axes = getattr(grid, "axes", [])
@@ -856,22 +839,17 @@ class GridTable:
 
     def _build_data(self, data: dict[str, Any]) -> dict[str, Any]:
         """Merge grid-table defaults into serialized request data."""
-        requested = str(
-            data.get("table_entry")
-            or data.get("mapping_entry")
-            or data.get("name")
-            or ""
-        )
+        requested = str(data.get("name") or "")
         if not requested:
             return data
         gm_entry = self.resolve_mapping(requested)
         if gm_entry is None:
             return data
         entry = gm_entry
-        for key in ("mapping_name", "grid_mapping_name", "mapping_var"):
-            val = getattr(entry, key)
-            if val is not None:
-                data.setdefault(key, val)
+        if entry.grid_mapping_name is not None:
+            data.setdefault("grid_mapping_name", entry.grid_mapping_name)
+        if entry.mapping_var is not None:
+            data.setdefault("mapping_var", entry.mapping_var)
         if entry.coordinates:
             data.setdefault("coordinates", list(entry.coordinates))
         table_params = entry.params

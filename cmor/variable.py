@@ -44,13 +44,11 @@ class Variable(MetadataModel):
     ----------
     name:
         Variable name or branded variable name.
-    id:
+    variable_id:
         Name of the variable in the output file. Defaults to the table's
         ``out_name``, or the part of ``name`` before the first ``_``. A value
-        you give must match the table.
-    variable_id:
-        Alternative to ``id``; ``id`` is used if both are given. Also
-        written as the ``variable_id`` global attribute.
+        you give must match the table. Also written as the ``variable_id``
+        global attribute.
     table_id:
         Table to use when the variable is in more than one table.
     dimensions:
@@ -78,15 +76,9 @@ class Variable(MetadataModel):
         Value that marks missing data. CMOR skips these points when it checks
         the data, and writes the value as ``_FillValue`` and
         ``missing_value``.
-    fill_value:
-        Alternative to ``missing_value``; ``missing_value`` is used if both
-        are given.
     chunksizes:
         NetCDF chunk size for each dimension. Chunk sizes in ``encoding``
         take priority.
-    chunks:
-        Alternative to ``chunksizes``; ``chunksizes`` is used if both are
-        given.
     coordinates:
         Value for the ``coordinates`` attribute. CMOR normally sets it.
     formula_terms:
@@ -119,7 +111,6 @@ class Variable(MetadataModel):
     """
 
     name: str
-    id: str | None = None
     variable_id: str | None = None
     table_id: str | None = None
     dimensions: StrSeq = None
@@ -132,9 +123,7 @@ class Variable(MetadataModel):
     flag_values: str | None = None
     flag_meanings: str | None = None
     missing_value: float | int | None = None
-    fill_value: float | int | None = None
     chunksizes: IntTuple = None
-    chunks: IntTuple = None
     coordinates: StrOrTuple = None
     formula_terms: str | None = None
     positive: PositiveLiteral = None
@@ -160,7 +149,7 @@ class Variable(MetadataModel):
         and ``"area_label"``.
         """
         branded = self.name
-        var_id = str(self.id or self.variable_id or branded.split("_", 1)[0])
+        var_id = str(self.variable_id or branded.split("_", 1)[0])
         labels: dict[str, str] = {"branded_name": branded, "variable_id": var_id}
         if "_" in branded:
             suffix = branded.split("_", 1)[1]
@@ -220,9 +209,7 @@ def validate_variable_values(
         return
 
     valid_mask = ~np.ma.getmaskarray(values)
-    missing_value = getattr(variable, "missing_value", None) or getattr(
-        variable, "fill_value", None
-    )
+    missing_value = getattr(variable, "missing_value", None)
     if missing_value is not None:
         try:
             valid_mask &= ~np.isclose(
@@ -411,7 +398,7 @@ def _variable_name(variable: Any, name: str | None) -> str:
     names = getattr(variable, "names", None)
     if callable(names):
         return names()[0]
-    return str(getattr(variable, "id", None) or getattr(variable, "name", ""))
+    return str(getattr(variable, "variable_id", None) or getattr(variable, "name", ""))
 
 
 def _table_id(variable: Any, table_id: str | None) -> str:

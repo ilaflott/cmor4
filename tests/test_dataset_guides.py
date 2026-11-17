@@ -312,7 +312,7 @@ class DatasetGuideProjectTest(unittest.TestCase):
                 ),
             ]
             grid = cmor.Grid(
-                mapping_name="latitude_longitude",
+                grid_mapping_name="latitude_longitude",
                 params={
                     "longitude_of_prime_meridian": [0.0, "degrees_east"],
                     "semi_major_axis": [6378137.0, "m"],

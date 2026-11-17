@@ -397,8 +397,6 @@ class ProjectTables:
             for value in (
                 axis.name,
                 axis.table_entry,
-                axis.axis_entry,
-                axis.coordinate,
                 axis.out_name,
                 axis.generic_level_name,
             )
@@ -472,39 +470,28 @@ class ProjectTables:
         --------
         :doc:`/usage/grids` : Curvilinear and projected grid examples.
         """
-        requested = str(
-            values.get("table_entry") or values.get("mapping_entry") or name or ""
-        )
+        data = {"name": name, **values}
+        requested = str(data.get("name") or "")
         gm_entry = self.grid_table.resolve_mapping(requested) if requested else None
 
         # Validate that each axis corresponds to an entry in the grids table.
         grid_axis_names = set(self.grid_table.axis_entries)
         for axis in axes:
-            candidate = str(
-                axis.table_entry
-                or axis.axis_entry
-                or axis.coordinate
-                or axis.name
-                or axis.out_name
-            )
+            candidate = str(axis.table_entry or axis.name or axis.out_name)
             if grid_axis_names and candidate not in grid_axis_names:
                 raise TableValidationError(
                     f"Axis {candidate!r} is not in the grid table axis_entry. "
                     f"Valid grid axes are: {sorted(grid_axis_names)}."
                 )
-        if (
-            gm_entry is not None
-            or values.get("mapping_name") is not None
-            or values.get("grid_mapping_name") is not None
-        ):
+        if gm_entry is not None or data.get("grid_mapping_name") is not None:
             validate_grid_mapping(
                 gm_entry,
-                values,
+                data,
                 axes=axes,
-                dimensions=values.get("dimensions"),
+                dimensions=data.get("dimensions"),
             )
 
-        data = {k: v for k, v in {"name": name, **values}.items() if v is not None}
+        data = {k: v for k, v in data.items() if v is not None}
         if gm_entry is not None:
             params = dict(data.get("params") or {})
             for parameter in gm_entry.numbered_parameters():
@@ -652,8 +639,6 @@ class ProjectTables:
             for value in (
                 axis.name,
                 axis.table_entry,
-                axis.axis_entry,
-                axis.coordinate,
                 axis.out_name,
                 axis.generic_level_name,
             )

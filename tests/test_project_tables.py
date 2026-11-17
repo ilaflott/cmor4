@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
+import pytest
 
 import cmor
 from cmor import (
@@ -309,6 +310,39 @@ def _build_project(
         kwargs["cell_measures_table"] = cell_measures_file
 
     return ProjectTables(cv_file, [vtable_file], **kwargs)
+
+
+def test_project_factories_use_canonical_component_names(tmp_path: Path) -> None:
+    project = _build_project(tmp_path)
+
+    variable = project.variable("pr", variable_id="pr", chunksizes=(2, 3, 4))
+    axis = project.axis("lat", table_entry="lat", values=[0.0])
+    zfactor = project.zfactor("ps", table_entry="ps", values=1.0)
+    grid = project.grid("rotated_latitude_longitude")
+
+    assert variable.variable_id == "pr"
+    assert variable.chunksizes == (2, 3, 4)
+    assert axis.table_entry == "lat"
+    assert zfactor.table_entry == "ps"
+    assert grid.name == "rotated_latitude_longitude"
+    assert grid.grid_mapping_name == "rotated_latitude_longitude"
+    assert variable.to_dict()["variable_id"] == "pr"
+    assert grid.to_dict()["grid_mapping_name"] == "rotated_latitude_longitude"
+
+
+def test_project_factories_reject_removed_parameters(tmp_path: Path) -> None:
+    project = _build_project(tmp_path)
+    for create in (
+        lambda: project.variable("pr", id="pr"),
+        lambda: project.axis("lat", coordinate="lat"),
+        lambda: project.zfactor("ps", formula_entry="ps"),
+        lambda: project.grid(mapping_entry="rotated_latitude_longitude"),
+        lambda: project.grid(
+            "rotated_latitude_longitude", mapping_name="rotated_latitude_longitude"
+        ),
+    ):
+        with pytest.raises(ValidationError, match="extra_forbidden"):
+            create()
 
 
 def _build_vc_project(tmp: Path, **kwargs) -> ProjectTables:
@@ -731,7 +765,7 @@ class ProjectTablesTest(unittest.TestCase):
         prepared_dataset = project.dataset_info(dataset)
 
         self.assertEqual(prepared_dataset.source_id, "BSVertOzone-v1-0")
-        self.assertEqual(prepared_variable.id, "o3")
+        self.assertEqual(prepared_variable.variable_id, "o3")
         self.assertEqual(prepared_variable.units, "mol mol-1")
         self.assertEqual(prepared_variable.dimensions, ("time", "height", "latitude"))
         self.assertEqual(
@@ -2743,7 +2777,7 @@ class GridMethodTest(unittest.TestCase):
 
     def test_mapping_attributes_normalize_paired_standard_parallel(self):
         grid = Grid(
-            mapping_name="lambert_conformal_conic",
+            grid_mapping_name="lambert_conformal_conic",
             params={
                 "standard_parallel1": {"value": 30.0, "units": "degrees_north"},
                 "standard_parallel2": (60.0, "degrees_north"),
@@ -4660,25 +4694,9 @@ class ValidateComponentsTest(unittest.TestCase):
     def test_grid_mapping_name_mismatch_raises(self):
         """Grid with grid_mapping_name conflicting with table raises."""
         variable = self.project.variable("pr")
-        # Force wrong value by bypassing project constructor
-        grid = Grid.__new__(Grid)
-        object.__setattr__(grid, "name", "rotated_latitude_longitude")
-        object.__setattr__(grid, "table_entry", "rotated_latitude_longitude")
-        object.__setattr__(grid, "mapping_entry", None)
+        grid = self.project.grid("rotated_latitude_longitude")
+        # Bypass frozen metadata to exercise validation of a corrupted record.
         object.__setattr__(grid, "grid_mapping_name", "wrong_value")
-        object.__setattr__(grid, "mapping_name", None)
-        object.__setattr__(grid, "mapping_var", None)
-        object.__setattr__(grid, "dimensions", None)
-        object.__setattr__(grid, "coordinates", ())
-        object.__setattr__(grid, "params", {})
-        object.__setattr__(grid, "attrs", {})
-        object.__setattr__(grid, "latitude", None)
-        object.__setattr__(grid, "longitude", None)
-        object.__setattr__(grid, "latitude_vertices", None)
-        object.__setattr__(grid, "longitude_vertices", None)
-        object.__setattr__(grid, "vertices_dim", "vertices")
-        object.__setattr__(grid, "project", None)
-        object.__setattr__(grid, "extra", {})
         with self.assertRaises(TableValidationError) as ctx:
             self.project._validate_dataset(
                 None, variable, self._standard_axes(), grid=grid
