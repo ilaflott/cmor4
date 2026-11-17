@@ -37,7 +37,7 @@ git submodule update --init --recursive
 Run the test suite:
 
 ```bash
-python -m unittest discover -s tests
+pytest
 ```
 
 Run code style checks:
