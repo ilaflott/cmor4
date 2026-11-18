@@ -1018,7 +1018,7 @@ class ProjectTablesTest(unittest.TestCase):
         info = project.dataset_info(dataset)
 
         with self.assertRaisesRegex(cmor.ControlledVocabularyError, "license_id"):
-            cmor.create_dataset(
+            cmor.cmorize(
                 info,
                 variable,
                 lat_lon_axes(project),
@@ -1034,7 +1034,7 @@ class ProjectTablesTest(unittest.TestCase):
         with self.assertRaisesRegex(
             cmor.ControlledVocabularyError, "not-a-real-activity"
         ):
-            cmor.create_dataset(
+            cmor.cmorize(
                 info,
                 variable,
                 lat_lon_axes(project),
@@ -1279,7 +1279,7 @@ class ProjectTablesTest(unittest.TestCase):
 
         with self.assertRaises(cmor.TableValidationError):
             with tempfile.TemporaryDirectory() as tmp_dir:
-                cmor.create_dataset(
+                cmor.cmorize(
                     info,
                     variable,
                     axes,

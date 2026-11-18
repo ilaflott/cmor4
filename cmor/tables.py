@@ -216,7 +216,7 @@ class ProjectTables:
     ) -> tuple[DatasetInfo, Variable]:
         """Prepare dataset info with variable-specific metadata and validation.
 
-        This is called by create_dataset to merge variable metadata into
+        This is called by cmorize to merge variable metadata into
         dataset and perform initial validation. Full component validation
         happens later during dataset validation. If contextual remapping
         tables are loaded, matching ``long_name`` and ``cell_measures`` values
@@ -603,7 +603,7 @@ class ProjectTables:
                 raise TableValidationError(
                     f"Axis {dim!r} is a grid axis (isgridaxis=True) but no "
                     "Grid was provided.  Pass the Grid via the grid= "
-                    "parameter of create_dataset() / cmorize()."
+                    "parameter of cmorize()."
                 )
 
         # Variable validation: ensure stored attributes match table entry

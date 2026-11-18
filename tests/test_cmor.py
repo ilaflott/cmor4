@@ -14,6 +14,7 @@ import cmor
 import cmor.exceptions
 import cmor._time as time_utils
 import cmor.axis as axis_validation
+from cmor._paths import build_output_path
 from dataset_helpers import open_created_dataset
 from table_helpers import cmip7_project
 
@@ -268,7 +269,7 @@ class Cmor4Test(unittest.TestCase):
                 cmor.AxisValidationError,
                 "Time interval mismatch detected",
             ):
-                cmor.create_dataset(
+                cmor.cmorize(
                     info,
                     variable,
                     bad_interval_axes,
@@ -338,7 +339,7 @@ class Cmor4Test(unittest.TestCase):
                 cmor.AxisValidationError,
                 "valid_min",
             ):
-                cmor.create_dataset(
+                cmor.cmorize(
                     info,
                     variable,
                     bad_lat_axes,
@@ -396,7 +397,7 @@ class Cmor4Test(unittest.TestCase):
                 cmor.VariableValidationError,
                 "1 values were NaNs",
             ):
-                cmor.create_dataset(
+                cmor.cmorize(
                     info,
                     variable,
                     [axis],
@@ -449,7 +450,7 @@ class Cmor4Test(unittest.TestCase):
                 cmor.VariableValidationError,
                 "greater by more than an order of magnitude",
             ):
-                cmor.create_dataset(
+                cmor.cmorize(
                     info,
                     variable,
                     [axis],
@@ -479,7 +480,7 @@ class Cmor4Test(unittest.TestCase):
                 cmor.VariableValidationError,
                 "ps.*1 values were NaNs",
             ):
-                cmor.create_dataset(
+                cmor.cmorize(
                     info,
                     variable,
                     [axis],
@@ -568,7 +569,7 @@ class Cmor4Test(unittest.TestCase):
             )
 
             with self.assertRaisesRegex(cmor.TableValidationError, "CF-1.12"):
-                cmor.create_dataset(
+                cmor.cmorize(
                     info,
                     variable,
                     axes,
@@ -668,7 +669,7 @@ class Cmor4Test(unittest.TestCase):
                 *horizontal_axes(self.project),
             ]
             variable = self.project.variable("tas_tavg-h2m-hxy-u", table_id="atmos")
-            cmor.create_dataset(
+            cmor.cmorize(
                 info,
                 variable,
                 axes,
@@ -820,7 +821,7 @@ class Cmor4Test(unittest.TestCase):
             basin_info = self.project.dataset_info(base_info)
 
             basin_path = Path(tmp_dir) / "basin.nc"
-            cmor.create_dataset(
+            cmor.cmorize(
                 basin_info,
                 basin_variable,
                 basin_axes,
@@ -1102,7 +1103,7 @@ class Cmor4Test(unittest.TestCase):
                 ds = open_created_dataset(info, variable, axes, np.ones(2, dtype="f4"))
 
                 self.assertEqual(
-                    cmor.build_output_path(info, variable, ds=ds).name,
+                    build_output_path(info, variable, ds=ds).name,
                     expected_name,
                 )
 
@@ -1136,7 +1137,7 @@ class Cmor4Test(unittest.TestCase):
             self.assertNotIn("bounds", ds["time"].attrs)
             self.assertEqual(ds["climatology_bnds"].dims, ("time", "bnds"))
             self.assertEqual(
-                cmor.build_output_path(info, variable, ds=ds).name,
+                build_output_path(info, variable, ds=ds).name,
                 "co2_mon_201801-201802.nc",
             )
 
@@ -1293,7 +1294,7 @@ class TableInfoTest(unittest.TestCase):
         self.assertRegex(ds.attrs["table_info"], r"MD5:[0-9a-f]{32}")
 
     def test_table_info_set_during_dataset_creation_not_dataset_info(self):
-        """table_info should be computed in dataset_for_variable (create_dataset),
+        """table_info should be computed in dataset_for_variable (cmorize),
         not during dataset_info() when no variable is known yet."""
         with tempfile.TemporaryDirectory() as tmp_dir:
             info = self.project.dataset_info(dataset_info(Path(tmp_dir)))

@@ -9,8 +9,7 @@ import pytest
 import xarray as xr
 
 import cmor
-from cmor.dataset import create_dataset_from_validated_data
-from cmor import _assembly, _netcdf
+from cmor import _assembly
 from cmor import axis as axis_module
 from cmor._metadata import DatasetMetadata
 from cmor._netcdf import prepare_append_encoding
@@ -178,35 +177,28 @@ def _simple_metadata():
         ({"chunksizes": (2,), "tas": {"chunksizes": (4,)}}, (4,)),
     ],
 )
-def test_public_entrypoints_and_encoding_precedence(tmp_path, encoding, chunks):
+def test_public_entrypoint_and_encoding_precedence(tmp_path, encoding, chunks):
     dataset, variable, axes = _simple_metadata()
     encoding = {"zlib": True, "complevel": 1, **encoding}
     encoding.setdefault("tas", {})["complevel"] = 2
     encoding["time"] = {"_FillValue": -99.0}
     ctx = validate_metadata(dataset, variable, axes)
-    ds = create_dataset_from_validated_data(ctx, np.arange(4.0), encoding=encoding)
+    ds = _assembly.build_dataset(ctx, np.arange(4.0), encoding=encoding)
     assert ds.tas.encoding["chunksizes"] == chunks
     assert ds.tas.encoding["complevel"] == 2
     assert ds.time.encoding["_FillValue"] is None
     assert ds.time_bnds.encoding["_FillValue"] is None
-    paths = [
-        entry(
-            dataset,
-            variable,
-            axes,
-            np.arange(4.0),
-            path=tmp_path / f"{entry.__name__}.nc",
-            encoding=encoding,
-        )
-        for entry in (cmor.cmorize, cmor.create_dataset)
-    ]
-    with (
-        xr.open_dataset(paths[0], decode_times=False) as left,
-        xr.open_dataset(paths[1], decode_times=False) as right,
-    ):
-        xr.testing.assert_identical(left, right)
-        assert left.tas.encoding["chunksizes"] == chunks
-        assert left.tas.encoding["complevel"] == 2
+    path = cmor.cmorize(
+        dataset,
+        variable,
+        axes,
+        np.arange(4.0),
+        path=tmp_path / "cmorize.nc",
+        encoding=encoding,
+    )
+    with xr.open_dataset(path, decode_times=False) as written:
+        assert written.tas.encoding["chunksizes"] == chunks
+        assert written.tas.encoding["complevel"] == 2
 
 
 def test_append_encoding_keeps_its_distinct_bounds_rule():
@@ -228,7 +220,7 @@ def test_append_write_failure_preserves_file_and_staging(
     tmp_path, monkeypatch, failed_write
 ):
     dataset, variable, axes = _simple_metadata()
-    path = cmor.create_dataset(
+    path = cmor.cmorize(
         dataset, variable, axes, np.arange(4.0), path=tmp_path / "data.nc"
     )
     original = path.read_bytes()
@@ -236,25 +228,25 @@ def test_append_write_failure_preserves_file_and_staging(
         dataset, variable, axes, path=path, existing="append", staging_dir=tmp_path
     )
     writer.write([4.0], time_values=[4.5], time_bounds=[[4.0, 5.0]])
-    write = _netcdf.write_dataset
+    write = xr.Dataset.to_netcdf
     calls = 0
 
-    def interrupted(ds, dataset, output_path, **kwargs):
+    def interrupted(self, path=None, *args, **kwargs):
         nonlocal calls
         calls += 1
         if calls == failed_write:
-            output_path.write_bytes(b"incomplete NetCDF")
+            Path(path).write_bytes(b"incomplete NetCDF")
             raise OSError("interrupted write")
-        return write(ds, dataset, output_path, **kwargs)
+        return write(self, path, *args, **kwargs)
 
-    monkeypatch.setattr(_netcdf, "write_dataset", interrupted)
+    monkeypatch.setattr(xr.Dataset, "to_netcdf", interrupted)
     with pytest.raises(OSError, match="interrupted write"):
         writer.close()
     assert path.read_bytes() == original
     assert writer._staging.path.exists()
     assert not writer._closed
     assert not list(tmp_path.glob(".data.nc.*.tmp"))
-    monkeypatch.setattr(_netcdf, "write_dataset", write)
+    monkeypatch.setattr(xr.Dataset, "to_netcdf", write)
     assert writer.close() == path
     assert not writer._staging.path.exists()
     with xr.open_dataset(path, decode_times=False) as output:

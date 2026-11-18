@@ -57,14 +57,17 @@ from typing import Any
 import numpy as np
 import xarray as xr
 
-from cmor import Axis, ControlledVocabulary, DatasetInfo, ProjectTables, Variable
+from cmor import (
+    Axis,
+    ControlledVocabulary,
+    DatasetInfo,
+    ProjectTables,
+    Variable,
+    cmorize,
+)
 from dataset_helpers import open_created_dataset
 from cmor._assembly import collect_external_variables
-from cmor.dataset import (
-    build_output_path,
-    create_dataset,
-    write_netcdf,
-)
+from cmor._paths import build_output_path
 from cmor.exceptions import AxisValidationError, ControlledVocabularyError
 from cmor._metadata import DatasetMetadata
 from cmor.axis import (
@@ -319,8 +322,8 @@ class TestFrequencyRequired(unittest.TestCase):
         )
         validate_axes(None, None, [lat_axis])  # no error expected
 
-    def test_project_tables_create_dataset_raises_without_frequency(self):
-        """create_dataset raises AxisValidationError when frequency is absent from
+    def test_project_tables_cmorize_raises_without_frequency(self):
+        """cmorize raises AxisValidationError when frequency is absent from
         both the dataset metadata and the variable table entry."""
         with tempfile.TemporaryDirectory() as tmp_str:
             tmp = Path(tmp_str)
@@ -352,9 +355,7 @@ class TestFrequencyRequired(unittest.TestCase):
             data = np.ones((2, 2, 2))
 
             with self.assertRaises(AxisValidationError):
-                create_dataset(
-                    dataset_info, variable, [time_axis, lat_axis, lon_axis], data
-                )
+                cmorize(dataset_info, variable, [time_axis, lat_axis, lon_axis], data)
 
 
 # ---------------------------------------------------------------------------
@@ -407,10 +408,10 @@ class TestExternalVariables(unittest.TestCase):
         self.assertEqual(collect_external_variables(var, set()), set())
 
     # -----------------------------------------------------------------------
-    # create_dataset integration tests
+    # cmorize integration tests
     # -----------------------------------------------------------------------
 
-    def _run_create_dataset(self, cell_measures: str, tmp: Path) -> dict:
+    def _run_cmorize(self, cell_measures: str, tmp: Path) -> dict:
         """
         Build a minimal dataset with the given cell_measures and return global attrs.
         """
@@ -441,21 +442,19 @@ class TestExternalVariables(unittest.TestCase):
 
     def test_external_variable_written_to_global_attrs(self):
         with tempfile.TemporaryDirectory() as tmp_str:
-            attrs = self._run_create_dataset("area: areacello", Path(tmp_str))
+            attrs = self._run_cmorize("area: areacello", Path(tmp_str))
         self.assertIn("external_variables", attrs)
         self.assertEqual(attrs["external_variables"], "areacello")
 
     def test_multiple_external_variables_space_separated_sorted(self):
         with tempfile.TemporaryDirectory() as tmp_str:
-            attrs = self._run_create_dataset(
-                "area: areacello volume: volcello", Path(tmp_str)
-            )
+            attrs = self._run_cmorize("area: areacello volume: volcello", Path(tmp_str))
         self.assertIn("external_variables", attrs)
         self.assertEqual(attrs["external_variables"], "areacello volcello")
 
     def test_no_external_variables_when_cell_measures_empty(self):
         with tempfile.TemporaryDirectory() as tmp_str:
-            attrs = self._run_create_dataset("", Path(tmp_str))
+            attrs = self._run_cmorize("", Path(tmp_str))
         self.assertNotIn("external_variables", attrs)
 
     def test_user_supplied_attrs_override_computed_external_variables(self):
@@ -2173,13 +2172,13 @@ class TestCreateSubdirectories(unittest.TestCase):
     raising ``ValueError`` when ``create_subdirectories=False`` and the
     output parent directory is absent.
 
-    The tests pass an explicit ``path=`` argument to ``write_netcdf`` so the
+    The tests pass an explicit ``path=`` argument to ``cmorize`` so the
     directory-existence check is exercised independently of ``build_output_path``
     (whose DRS template rendering is project-specific).
     """
 
-    def _build_minimal_ds(self, tmp: Path) -> tuple:
-        """Return (xr.Dataset, DatasetInfo, Variable) for the minimal project."""
+    def _build_minimal_inputs(self, tmp: Path) -> tuple:
+        """Return (DatasetInfo, Variable, axes, data) for the minimal project."""
 
         project = _make_project(
             tmp, _MINIMAL_CV, _MINIMAL_VARIABLES, _MINIMAL_COORDINATES
@@ -2191,13 +2190,8 @@ class TestCreateSubdirectories(unittest.TestCase):
         )
         lat_axis = project.axis("lat", values=[-45.0, 45.0])
         lon_axis = project.axis("lon", values=[0.0, 90.0])
-        ds = open_created_dataset(
-            dataset_info,
-            variable,
-            [time_axis, lat_axis, lon_axis],
-            np.ones((2, 2, 2)),
-        )
-        return ds, dataset_info, variable
+        axes = [time_axis, lat_axis, lon_axis]
+        return dataset_info, variable, axes, np.ones((2, 2, 2))
 
     def _patch_dataset(self, dataset_info, extra: dict):
         """Return a new prepared dataset with extra keys merged in."""
@@ -2219,12 +2213,12 @@ class TestCreateSubdirectories(unittest.TestCase):
         """
         with tempfile.TemporaryDirectory() as tmp_str:
             tmp = Path(tmp_str)
-            ds, info, variable = self._build_minimal_ds(tmp)
+            info, variable, axes, data = self._build_minimal_inputs(tmp)
             patched = self._patch_dataset(info, {"create_subdirectories": False})
 
             nonexistent = tmp / "missing_dir" / "output.nc"
             with self.assertRaises(ValueError) as ctx:
-                write_netcdf(ds, patched, variable, path=nonexistent)
+                cmorize(patched, variable, axes, data, path=nonexistent)
 
         self.assertIn("does not exist", str(ctx.exception))
         self.assertIn("create_subdirectories", str(ctx.exception))
@@ -2233,11 +2227,11 @@ class TestCreateSubdirectories(unittest.TestCase):
         """Error message tells the user how to fix the problem."""
         with tempfile.TemporaryDirectory() as tmp_str:
             tmp = Path(tmp_str)
-            ds, info, variable = self._build_minimal_ds(tmp)
+            info, variable, axes, data = self._build_minimal_inputs(tmp)
             patched = self._patch_dataset(info, {"create_subdirectories": False})
 
             with self.assertRaises(ValueError) as ctx:
-                write_netcdf(ds, patched, variable, path=tmp / "no_dir" / "f.nc")
+                cmorize(patched, variable, axes, data, path=tmp / "no_dir" / "f.nc")
 
         self.assertIn("create_subdirectories", str(ctx.exception))
 
@@ -2245,12 +2239,12 @@ class TestCreateSubdirectories(unittest.TestCase):
         """The check fires even for deeply nested missing paths."""
         with tempfile.TemporaryDirectory() as tmp_str:
             tmp = Path(tmp_str)
-            ds, info, variable = self._build_minimal_ds(tmp)
+            info, variable, axes, data = self._build_minimal_inputs(tmp)
             patched = self._patch_dataset(info, {"create_subdirectories": False})
 
             nested = tmp / "a" / "b" / "c" / "d" / "output.nc"
             with self.assertRaises(ValueError):
-                write_netcdf(ds, patched, variable, path=nested)
+                cmorize(patched, variable, axes, data, path=nested)
 
     # -----------------------------------------------------------------------
     # create_subdirectories=False happy path
@@ -2260,14 +2254,14 @@ class TestCreateSubdirectories(unittest.TestCase):
         """Pre-existing output dir with create_subdirectories=False succeeds."""
         with tempfile.TemporaryDirectory() as tmp_str:
             tmp = Path(tmp_str)
-            ds, info, variable = self._build_minimal_ds(tmp)
+            info, variable, axes, data = self._build_minimal_inputs(tmp)
             patched = self._patch_dataset(info, {"create_subdirectories": False})
 
             existing_dir = tmp / "existing"
             existing_dir.mkdir()
             output_file = existing_dir / "output.nc"
 
-            path = write_netcdf(ds, patched, variable, path=output_file)
+            path = cmorize(patched, variable, axes, data, path=output_file)
             self.assertTrue(path.exists())
 
     # -----------------------------------------------------------------------
@@ -2278,22 +2272,22 @@ class TestCreateSubdirectories(unittest.TestCase):
         """Default behaviour creates the output directory tree automatically."""
         with tempfile.TemporaryDirectory() as tmp_str:
             tmp = Path(tmp_str)
-            ds, info, variable = self._build_minimal_ds(tmp)
+            info, variable, axes, data = self._build_minimal_inputs(tmp)
 
             # No create_subdirectories set — defaults to True
             nonexistent = tmp / "auto" / "created" / "output.nc"
-            path = write_netcdf(ds, info, variable, path=nonexistent)
+            path = cmorize(info, variable, axes, data, path=nonexistent)
             self.assertTrue(path.exists())
 
     def test_create_subdirectories_true_creates_dirs(self):
         """Explicit create_subdirectories=True also creates directories."""
         with tempfile.TemporaryDirectory() as tmp_str:
             tmp = Path(tmp_str)
-            ds, info, variable = self._build_minimal_ds(tmp)
+            info, variable, axes, data = self._build_minimal_inputs(tmp)
             patched = self._patch_dataset(info, {"create_subdirectories": True})
 
             nonexistent = tmp / "auto_true" / "output.nc"
-            path = write_netcdf(ds, patched, variable, path=nonexistent)
+            path = cmorize(patched, variable, axes, data, path=nonexistent)
             self.assertTrue(path.exists())
 
     # -----------------------------------------------------------------------

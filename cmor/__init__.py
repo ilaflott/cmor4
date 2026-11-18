@@ -2,13 +2,7 @@
 
 __version__ = "4.0.0a1"
 
-from .dataset import (
-    build_output_path,
-    cmorize,
-    create_dataset,
-    open_dataset,
-    write_netcdf,
-)
+from .dataset import cmorize
 from .axis import Axis
 from .cv import ControlledVocabulary
 from .datasetinfo import DatasetInfo
@@ -28,18 +22,14 @@ __all__ = [
     "Axis",
     "AxisValidationError",
     "ControlledVocabularyError",
-    "build_output_path",
     "cmorize",
-    "create_dataset",
     "ControlledVocabulary",
     "DatasetWriter",
     "Grid",
-    "open_dataset",
     "DatasetInfo",
     "ProjectTables",
     "TableValidationError",
     "Variable",
     "VariableValidationError",
-    "write_netcdf",
     "ZFactor",
 ]

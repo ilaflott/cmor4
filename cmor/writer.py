@@ -12,10 +12,9 @@ import dask.array as da
 import numpy as np
 import zarr
 
-from . import _assembly, _netcdf
+from . import _assembly, _netcdf, _paths
 from ._time import bounds_as_pairs, find_time_axis, metadata_time_axis
 from .axis import Axis
-from .dataset import build_output_path
 from .datasetinfo import DatasetInfo
 from .grid import Grid
 from .variable import Variable, validate_variable_values
@@ -42,8 +41,8 @@ class DatasetWriter:
         Coordinate axes. The time axis may have no values; you then pass
         the time values to :meth:`write`.
     path : str or Path, optional
-        Output file path. If omitted, CMOR builds it with
-        :func:`build_output_path`.
+        Output file path. If omitted, CMOR builds it from the output path
+        templates, as described for :func:`cmorize`.
     zfactors : Sequence[ZFactor], optional
         Formula terms for a hybrid vertical coordinate. A term that changes
         with time can have no values; you then pass them to :meth:`write`.
@@ -285,16 +284,13 @@ class DatasetWriter:
             attrs=self.attrs,
             encoding=self.encoding,
         )
-        output_path = self.path or build_output_path(
-            self._ctx.dataset,
-            self._ctx.variable,
-            ds,
+        output_path = self.path or _paths.build_output_path(
+            self._ctx.dataset, self._ctx.variable, ds
         )
         if self.existing == "append":
             output_path = _netcdf.append_to_existing(
                 output_path,
                 ds,
-                dataset=self._ctx.dataset,
                 variable=self._ctx.variable,
                 time_dim=self._time_dim,
                 time_axis=self._time_axis,
@@ -306,12 +302,8 @@ class DatasetWriter:
                 "Use existing='replace' to overwrite it."
             )
         else:
-            output_path = _netcdf.write_dataset(
-                ds,
-                self._ctx.dataset,
-                output_path,
-                **self.to_netcdf_kwargs,
-            )
+            _paths.ensure_output_directory(self._ctx.dataset, output_path)
+            ds.to_netcdf(output_path, **self.to_netcdf_kwargs)
         if preserve_definition:
             self._prepare_next_segment()
         else:

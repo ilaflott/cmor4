@@ -1,7 +1,7 @@
 """NetCDF encoding, file writes, and atomic append transactions.
 
-All writes receive an explicit path. Public output naming remains in dataset;
-this module does not depend on dataset assembly or the writer state machine.
+All writes receive an explicit path. Output naming and directory policy live in
+_paths; this module does not depend on dataset assembly or the writer state machine.
 """
 
 from __future__ import annotations
@@ -381,37 +381,6 @@ def is_time_metadata_variable(
     )
 
 
-def write_dataset(
-    ds: xr.Dataset,
-    dataset: DatasetMetadata,
-    output_path: Path,
-    **to_netcdf_kwargs: Any,
-) -> Path:
-    """Write to an explicit path using the caller's directory-creation policy."""
-
-    # Honour create_subdirectories.  The flag mirrors CMOR3's own behaviour:
-    # when False, the output directory must already exist; CMOR3 errors when
-    # it cannot create the directory (e.g. a non-existent /CMIP6 root).
-    # Default is True for backwards-compatibility with CMOR's original
-    # always-create behaviour.
-    create_subdirs = (
-        True if dataset.create_subdirectories is None else dataset.create_subdirectories
-    )
-    if create_subdirs:
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-    elif not output_path.parent.exists():
-        raise ValueError(
-            f"Output directory {str(output_path.parent)!r} does not exist "
-            "and create_subdirectories is disabled. "
-            "Create the directory first or set create_subdirectories=True "
-            "in the dataset metadata."
-        )
-
-    ds.to_netcdf(output_path, **to_netcdf_kwargs)
-
-    return output_path
-
-
 APPEND_IGNORED_GLOBAL_ATTRS = frozenset({
     "creation_date",
     "history",
@@ -424,7 +393,6 @@ def append_to_existing(
     output_path: Path,
     new_ds: xr.Dataset,
     *,
-    dataset: DatasetMetadata,
     variable: Variable,
     time_dim: str,
     time_axis: Axis,
@@ -452,12 +420,7 @@ def append_to_existing(
     new_check_ds: xr.Dataset | None = None
     try:
         check_path = temporary_netcdf_path(output_path)
-        write_dataset(
-            new_ds,
-            dataset,
-            output_path=check_path,
-            **to_netcdf_kwargs,
-        )
+        new_ds.to_netcdf(check_path, **to_netcdf_kwargs)
         if not check_path.exists() or check_path.stat().st_size == 0:
             raise OSError(
                 "Append compatibility check did not create a valid "
@@ -482,12 +445,7 @@ def append_to_existing(
         prepare_append_encoding(merged_ds, new_ds)
         prepare_append_attrs(merged_ds, existing_ds, new_ds)
         temp_path = temporary_netcdf_path(output_path)
-        write_dataset(
-            merged_ds,
-            dataset,
-            output_path=temp_path,
-            **to_netcdf_kwargs,
-        )
+        merged_ds.to_netcdf(temp_path, **to_netcdf_kwargs)
         if not temp_path.exists() or temp_path.stat().st_size == 0:
             raise OSError(
                 "Append write did not create a valid temporary file "
