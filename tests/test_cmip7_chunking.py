@@ -553,7 +553,7 @@ class TestCMIP7ChunkingValidation(unittest.TestCase):
         encoding = {"bldep": {"chunksizes": (10, 10, 20)}}
 
         with self.assertRaises(ValueError) as cm:
-            cmor.create_dataset(dataset, variable, axes, data, encoding=encoding)
+            cmor.cmorize(dataset, variable, axes, data, encoding=encoding)
 
         self.assertIn("4 mib", str(cm.exception).lower())
 
@@ -594,7 +594,7 @@ class TestCMIP7ChunkingValidation(unittest.TestCase):
         encoding = {"chunksizes": (10, 10, 20)}
 
         with self.assertRaises(ValueError) as cm:
-            cmor.create_dataset(dataset, variable, axes, data, encoding=encoding)
+            cmor.cmorize(dataset, variable, axes, data, encoding=encoding)
 
         self.assertIn("4 mib", str(cm.exception).lower())
 
@@ -639,7 +639,7 @@ class TestCMIP7ChunkingValidation(unittest.TestCase):
         for encoding in cases:
             with self.subTest(encoding=encoding):
                 with self.assertRaises(ValueError) as cm:
-                    cmor.create_dataset(
+                    cmor.cmorize(
                         dataset,
                         variable,
                         axes,

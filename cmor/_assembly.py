@@ -739,9 +739,8 @@ def build_dataset(
 ) -> xr.Dataset:
     """Create a dataset from metadata and data that was already validated.
 
-    This internal helper keeps final DatasetWriter construction on the same
-    path as :func:`create_dataset` without forcing a lazy staged array into
-    memory for a second validation pass.
+    Both :func:`cmorize` and DatasetWriter use this, so a lazy staged array
+    is not forced into memory for a second validation pass.
     """
 
     dataset = ctx.dataset

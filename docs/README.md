@@ -134,7 +134,7 @@ Add the function to `source/api/functions.rst`:
 
 - **Docstring format**: Use NumPy-style docstrings with sections like `Parameters`, `Returns`, `Raises`, and `Examples`.
 
-- **Cross-references**: Link to other classes/functions using backticks with colons: `` :class:`DatasetInfo` `` or `` :func:`create_dataset` ``
+- **Cross-references**: Link to other classes/functions using backticks with colons: `` :class:`DatasetInfo` `` or `` :func:`cmorize` ``
 
 - **Code blocks**: Use `::` followed by an indented block, or use `` ```python `` for syntax highlighting.
 

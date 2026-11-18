@@ -6,6 +6,7 @@ import xarray as xr
 
 import cmor
 from cmor import _assembly
+from cmor._paths import build_output_path
 from cmor.axis import validate_time_interval
 from test_project_tables import _build_project
 
@@ -57,20 +58,20 @@ def test_axis_metadata_reaches_globals_paths_and_final_validation(project, tmp_p
     assert ctx.dataset.project is project
     assert info.frequency is None
     assert ctx.dataset.frequency == "mon"
-    path = cmor.create_dataset(info, variable, [axis], np.ones(2))
+    path = cmor.cmorize(info, variable, [axis], np.ones(2))
     assert path == tmp_path / "mon" / "sample_mon_200102-200103.nc"
     with xr.open_dataset(path, decode_times=False) as ds:
         assert ds.attrs["frequency"] == "mon"
         assert "calendar" not in ds.attrs
         assert ds.time.attrs["calendar"] == "360_day"
         assert "frequency" not in ds.time.attrs
-        assert cmor.build_output_path(info, variable, ds) == path
+        assert build_output_path(info, variable, ds) == path
 
 
 @pytest.mark.parametrize("frequency", [None, "day"])
 def test_variable_table_frequency_default(project, tmp_path, frequency):
     axis = time_axis(project, values=[0.5, 1.5], frequency=frequency)
-    path = cmor.create_dataset(
+    path = cmor.cmorize(
         project.dataset_info({}),
         project.variable("daily"),
         [axis],
@@ -101,7 +102,7 @@ def test_final_global_validation_still_rejects_overrides(
 ):
     path = tmp_path / "invalid.nc"
     with pytest.raises(error, match="frequency"):
-        cmor.create_dataset(
+        cmor.cmorize(
             project.dataset_info({}),
             project.variable("sample"),
             [time_axis(project)],
@@ -145,7 +146,7 @@ def test_missing_frequency_rejected(project, values):
 
 
 def test_fixed_field_needs_no_time_metadata(project, tmp_path):
-    path = cmor.create_dataset(
+    path = cmor.cmorize(
         project.dataset_info({}),
         project.variable("fixed"),
         [],
@@ -160,7 +161,7 @@ def test_fixed_field_needs_no_time_metadata(project, tmp_path):
 
 def test_default_calendar_written_on_time_coordinate(project, tmp_path):
     axis = time_axis(project, calendar=None)
-    path = cmor.create_dataset(
+    path = cmor.cmorize(
         project.dataset_info({}),
         project.variable("sample"),
         [axis],

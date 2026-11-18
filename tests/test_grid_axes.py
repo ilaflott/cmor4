@@ -7,13 +7,13 @@ Covers:
 * Caller's original Axis instance is not mutated
 * dimensions derived automatically from axes
 * variable_dimensions() with axes, with strings, fallback
-* Grid.axes are appended directly in create_dataset (no _grid_axes wrapper)
+* Grid.axes are appended directly in cmorize (no _grid_axes wrapper)
 * add_grid_coords() writes lat/lon/vertices directly as dataset coords
 * Grid.to_dataset_coords() produces correct coords/data_vars/aux names
 * must_call_cmor_grid: isgridaxis axis in user axes without Grid → error
 * ProjectTables.grid(axes=...) validates axes against grid table
 * validate_grid_dimensions() both paths
-* Full round-trip: create_dataset with axis-based Grid
+* Full round-trip: cmorize with axis-based Grid
 """
 
 from __future__ import annotations
@@ -169,7 +169,7 @@ class TestVariableDimensions(unittest.TestCase):
 # ---------------------------------------------------------------------------
 # 4. add_grid_coords() in _assembly
 # ---------------------------------------------------------------------------
-# Note: there is no _grid_axes() wrapper. create_dataset() directly appends
+# Note: there is no _grid_axes() wrapper. cmorize() directly appends
 # grid.axes to the axis list (or nothing when grid is None). The round-trip
 # tests in section 9 exercise that path end-to-end.
 
@@ -555,12 +555,12 @@ class TestNameBasedGridBackcompat(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
-# 9. Round-trip: create_dataset with axis-based Grid
+# 9. Round-trip: cmorize with axis-based Grid
 # ---------------------------------------------------------------------------
 
 
 class TestCreateDatasetWithGridAxes(unittest.TestCase):
-    """create_dataset should correctly write dimensional + auxiliary axes."""
+    """cmorize should correctly write dimensional + auxiliary axes."""
 
     def _make_grid_and_axes(
         self, nj: int = 4, ni: int = 8
