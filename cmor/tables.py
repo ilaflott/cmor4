@@ -10,7 +10,7 @@ from typing import Any, Mapping, Sequence
 from pydantic import ValidationError
 
 from ._coordinate_tables import CoordinateTable, FormulaTable, GridTable
-from ._metadata import DatasetMetadata
+from ._metadata import DatasetMetadata, warn_tracking_id_ignored
 from ._templates import is_unresolved_template as _is_unresolved_template
 from ._variable_tables import VariableEntry, VariableTable
 from .axis import (
@@ -197,6 +197,8 @@ class ProjectTables:
         user_info = (
             dataset.to_dict() if isinstance(dataset, DatasetMetadata) else dict(dataset)
         )
+        if user_info.pop("tracking_id", None) is not None:
+            warn_tracking_id_ignored("dataset_info()")
         try:
             metadata = DatasetMetadata.from_mapping(user_info)
         except ValidationError as exc:

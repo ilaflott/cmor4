@@ -447,15 +447,16 @@ other keys in this section, such as CMIP7's ``*_example`` entries:
 ``tracking_id`` and ``tracking_id_prefix``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-If the CV requires ``tracking_id`` and you do not supply one, CMOR
-generates a UUID. With a prefix the ID has the form ``<prefix>/<uuid4>``.
-Without one it is just the UUID. If ``tracking_id`` is not required and
-you do not supply one, CMOR does not generate it.
+CMOR always sets ``tracking_id`` itself. If the CV requires it, CMOR
+generates a new UUID for every file it writes, including each segment and
+each append. With a prefix the ID has the form ``<prefix>/<uuid4>``.
+Without one it is just the UUID. If ``tracking_id`` is not required, CMOR
+does not write one.
 
-CMOR keeps a ``tracking_id`` you supply. It checks the value only when the
-CV defines a constraint for it that CMOR applies. The CMIP7 constraint is
-a one-item legacy POSIX pattern (see :ref:`cv-legacy-posix-regex`), so a
-``tracking_id`` you supply with CMIP7 is not checked.
+You cannot set ``tracking_id`` yourself. If you pass one to
+:meth:`~cmor.ProjectTables.dataset_info`, in ``attrs``, or in a
+:class:`~cmor.DatasetInfo`, CMOR ignores it and emits a ``UserWarning``.
+To control the prefix, set ``tracking_prefix`` instead.
 
 The prefix for a generated ID comes from the first of these that is
 available:

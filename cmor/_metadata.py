@@ -6,6 +6,7 @@ coordinate and variable table modules.
 
 from __future__ import annotations
 
+import warnings
 from collections.abc import Mapping
 from datetime import datetime, timezone
 from typing import Annotated, Any, Self
@@ -230,6 +231,17 @@ INTERNAL_DATASET_KEYS: frozenset[str] = frozenset({
 })
 
 
+def warn_tracking_id_ignored(source: str) -> None:
+    """Warn that a user-supplied ``tracking_id`` will be replaced."""
+
+    warnings.warn(
+        f"tracking_id supplied in {source} is ignored; CMOR generates the "
+        "tracking_id for each file.",
+        UserWarning,
+        stacklevel=3,
+    )
+
+
 class DatasetMetadata(MetadataModel):
     """Shared dataset-level metadata fields and helpers."""
 
@@ -371,6 +383,11 @@ class DatasetMetadata(MetadataModel):
         """Return complete NetCDF global attributes for this dataset and variable."""
         creation_date = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         metadata = self.to_dict()
+        if getattr(self, "project", None) is None and "tracking_id" in metadata:
+            # Without project tables nothing generated this value: it came
+            # from the user, so drop it.
+            warn_tracking_id_ignored("the dataset metadata")
+            del metadata["tracking_id"]
         attrs: dict[str, Any] = {
             "Conventions": metadata.get("Conventions", "CF-1.12"),
             "cmor_version": _VERSION,
@@ -417,5 +434,8 @@ class DatasetMetadata(MetadataModel):
             attrs.setdefault("title", f"{src} output prepared for {mip_era}")
 
         if extra_attrs:
-            attrs.update(MetadataModel.netcdf_attrs(extra_attrs))
+            extra = MetadataModel.netcdf_attrs(extra_attrs)
+            if extra.pop("tracking_id", None) is not None:
+                warn_tracking_id_ignored("attrs")
+            attrs.update(extra)
         return attrs
