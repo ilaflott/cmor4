@@ -439,15 +439,16 @@ class ProjectTables:
         """Build a grid from the grid table.
 
         Use a grid for data on a curvilinear grid or a map projection. Pass
-        the grid's index axes in ``axes`` (curvilinear grids), or a grid
-        mapping ``name`` with ``params`` (projections), or both.
+        the grid's index axes in ``axes`` (curvilinear grids), a CF
+        ``grid_mapping_name`` with ``params`` (projections), or both.
 
         Parameters
         ----------
         name
-            Grid mapping entry in the grid table, such as
-            ``"lambert_conformal_conic"``. Omit it for a grid with no map
-            projection.
+            Name of a ``mapping_entry`` in the grid table. Omit it unless the
+            table defines the mapping you want. To use a CF projection
+            directly, pass ``grid_mapping_name="lambert_conformal_conic"``
+            (for example) instead.
         axes
             Index axes for the grid (for example, ``j_index`` and
             ``i_index``), built with :meth:`axis`. The grid's dimensions are

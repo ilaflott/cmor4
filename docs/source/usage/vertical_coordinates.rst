@@ -4,8 +4,8 @@ Vertical Coordinates and Formula Terms
 If the variable table lists a vertical dimension, add a vertical axis to
 ``axes``.
 
-Some vertical coordinates, such as hybrid sigma-pressure levels, have no
-units of their own. To turn them into pressure or height, you also supply
+Some vertical coordinates, such as hybrid sigma-pressure levels, are
+dimensionless. To turn them into pressure or height, you also supply
 *formula terms*: extra arrays such as ``a``, ``b``, ``p0`` and ``ps``. CMOR
 calls these *z-factors*, and their definitions come from the project's
 formula table.
@@ -13,16 +13,64 @@ formula table.
 Pressure levels
 ---------------
 
-For a pressure-level variable, create the pressure axis the variable
-table asks for (here ``plev``). List the axes in the same order as the
-table's dimensions. This code creates a three-level pressure axis and
-places it between the time and horizontal axes:
+For a pressure-level variable, create the pressure axis named in the
+variable's dimensions (here ``plev3``, three standard levels). The
+``axes`` list can be in any order, but the data must follow the
+variable's dimension order, here ``(time, pressure, latitude,
+longitude)``. This code writes instantaneous air temperature on three
+pressure levels:
 
 .. code-block:: python
 
-   pressure = project.axis("plev", values=[92500.0, 50000.0, 10000.0])
-   pressure_axes = [axes[0], pressure, axes[1], axes[2]]
-   # The data shape follows (time, pressure, latitude, longitude).
+   import cmor
+   import numpy as np
+
+   project = cmor.ProjectTables.from_directory(
+       "project_tables/cmip7-cmor-tables",
+       cv_file="tables-cvs/cmor-cvs.json",
+       variable_tables=["tables/CMIP7_atmos.json"],
+   )
+   dataset = project.dataset_info({
+       "activity_id": "CMIP",
+       "experiment_id": "amip",
+       "forcing_index": "f1",
+       "grid_label": "g101",
+       "initialization_index": "i1",
+       "institution_id": "CNRM-CERFACS",
+       "license_id": "CC-BY-4.0",
+       "nominal_resolution": "100 km",
+       "physics_index": "p1",
+       "realization_index": "r1",
+       "region": "glb",
+       "source_id": "CNRM-ESM2-1e",
+       "outpath": "./output",
+   })
+   ta_variable = project.variable("ta_tpt-p3-hxy-air")
+
+   pressure_axes = [
+       # Time points (no bounds), every 6 hours.
+       project.axis(
+           "time1", calendar="360_day", frequency="6hr",
+           values=[0.0, 0.25], units="days since 1979-01-01",
+       ),
+       project.axis("plev3", values=[85000.0, 50000.0, 25000.0]),
+       project.axis(
+           "latitude", values=[10.0, 20.0, 30.0],
+           bounds=[[5.0, 15.0], [15.0, 25.0], [25.0, 35.0]],
+       ),
+       project.axis(
+           "longitude", values=[0.0, 90.0, 180.0, 270.0],
+           bounds=[[-45.0, 45.0], [45.0, 135.0],
+                   [135.0, 225.0], [225.0, 315.0]],
+       ),
+   ]
+   # Shape: (time, pressure, latitude, longitude).
+   data = np.full((2, 3, 3, 4), 250.0, dtype="f4")
+   path = cmor.cmorize(
+       dataset, ta_variable, pressure_axes, data,
+       path="./output/ta_plev3.nc",
+   )
+   print(path)
 
 Some variables are defined at a single fixed level, such as 850 hPa. The
 variable table says so, and CMOR adds that scalar axis for you.
@@ -30,9 +78,10 @@ variable table says so, and CMOR adds that scalar axis for you.
 Hybrid sigma-pressure coordinates
 ---------------------------------
 
-This example writes cloud fraction on hybrid sigma-pressure levels. Load
-the formula table along with the variable table. The variable has shape
-``(time, lev, lat, lon)``.
+This example writes cloud fraction on hybrid sigma-pressure levels. The
+formula table defines the terms; ``from_directory`` finds it in the
+``tables`` directory, or you can name it with ``formula_table=``. The
+variable has shape ``(time, lev, lat, lon)``.
 
 The formula for this coordinate needs four terms. The ``a`` and ``b``
 coefficients and the reference pressure ``p0`` are constant. The surface
@@ -68,7 +117,7 @@ pressure ``ps`` changes with time and location.
 
    time_axis = project.axis(
        "time", calendar="360_day", frequency="mon",
-       values=[15.5, 45.5], bounds=[[0.0, 31.0], [31.0, 60.0]],
+       values=[15.0, 45.0], bounds=[[0.0, 30.0], [30.0, 60.0]],
        units="days since 1979-01-01",
    )
    lev = project.axis(
@@ -88,9 +137,9 @@ pressure ``ps`` changes with time and location.
    )
    hybrid_axes = [time_axis, lev, latitude, longitude]
 
-   a = [0.12, 0.22, 0.30, 0.20, 0.10]
-   a_bounds = [[0.06, 0.18], [0.18, 0.26], [0.26, 0.25],
-               [0.25, 0.15], [0.15, 0.00]]
+   a = [0.12, 0.22, 0.25, 0.20, 0.10]
+   a_bounds = [[0.06, 0.18], [0.18, 0.26], [0.26, 0.24],
+               [0.24, 0.15], [0.15, 0.00]]
    b = [0.80, 0.50, 0.20, 0.10, 0.00]
    b_bounds = [[0.94, 0.65], [0.65, 0.35], [0.35, 0.15],
                [0.15, 0.05], [0.05, 0.00]]

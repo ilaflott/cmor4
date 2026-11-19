@@ -53,7 +53,7 @@ the repository root.
    axes = [
        project.axis(
            "time", calendar="360_day", frequency="mon",
-           values=[15.5, 45.5], bounds=[[0.0, 31.0], [31.0, 60.0]],
+           values=[15.0, 45.0], bounds=[[0.0, 30.0], [30.0, 60.0]],
            units="days since 1979-01-01",
        ),
        project.axis(

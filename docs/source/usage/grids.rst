@@ -15,8 +15,9 @@ Rectilinear grids
 
 Pass a latitude axis and a longitude axis to :func:`cmor.cmorize`. The
 values do not have to be evenly spaced; the values and bounds describe the
-grid fully. This code builds unevenly spaced latitude and longitude
-axes and lists them after the time axis:
+grid fully. Continuing from the :doc:`basic_usage` example (which defines
+``project`` and ``axes``), this code builds unevenly spaced latitude and
+longitude axes and lists them after the time axis:
 
 .. code-block:: python
 
@@ -42,8 +43,9 @@ For a two-dimensional grid:
 3. Pass the grid to ``cmorize()`` with ``grid=``. List only the other axes
    (here, time) in ``axes``; do not list ``y`` and ``x`` again.
 
-Load the grid table along with the variable table. This example writes
-latent heat flux on a 3 x 4 curvilinear grid:
+``from_directory`` finds the grid table in the ``tables`` directory; you
+can also name it with ``grid_table=``. This example writes latent heat
+flux on a 3 x 4 curvilinear grid:
 
 .. code-block:: python
 
@@ -84,7 +86,7 @@ latent heat flux on a 3 x 4 curvilinear grid:
    )
    time_axis = grid_project.axis(
        "time", calendar="360_day", frequency="mon",
-       values=[15.5, 45.5], bounds=[[0.0, 31.0], [31.0, 60.0]],
+       values=[15.0, 45.0], bounds=[[0.0, 30.0], [30.0, 60.0]],
        units="days since 1979-01-01",
    )
    data = np.full((2, 3, 4), 80.0, dtype="f4")
@@ -101,8 +103,10 @@ here ``(y, x)``. To also write cell corners, pass ``latitude_vertices`` and
 CF grid mappings
 ----------------
 
-If the grid comes from a map projection, give ``grid()`` the CF mapping
-name and its parameters. Each parameter value is a ``[value, units]`` pair;
+If the grid comes from a map projection, pass the CF mapping name to
+``grid()`` as ``grid_mapping_name=`` (not as the first, positional
+argument, which names a grid-table entry), along with its parameters in
+``params``. Each parameter value is a number or a ``[value, units]`` pair;
 ``""`` means no units. CMOR checks the name and parameters against the CF
 conventions. It then writes a grid-mapping variable and links the data
 variable to it. This code adds a Lambert conformal conic projection to
@@ -126,6 +130,9 @@ the curvilinear grid:
        grid_dataset, grid_variable, [time_axis], data, grid=grid,
        path="./output/hfls_mapped.nc",
    )
+
+CMOR writes ``standard_parallel1`` and ``standard_parallel2`` as the single
+CF attribute ``standard_parallel = [-20.0, 20.0]``.
 
 Data on a list of points or sites, with one spatial index, uses the same
 ``grid()`` call with one index axis and one-dimensional latitude and
