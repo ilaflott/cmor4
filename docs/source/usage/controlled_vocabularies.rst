@@ -495,18 +495,19 @@ attribute.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Each of ``realization_index``, ``initialization_index``, ``physics_index``
-and ``forcing_index`` must be a positive integer, given with its letter
-(``r3``). For an index whose CV entry is a one-item legacy POSIX pattern
-(see :ref:`cv-legacy-posix-regex`), you can also give the number alone
-(``3``). When all four are present, CMOR builds ``variant_label`` from
-them (``r3i1p1f1``).
+and ``forcing_index`` must be a positive integer. You can give it as a
+number (``3``) or with its letter (``r3``). If the CV's patterns require
+the letter, CMOR adds it, so the file has ``realization_index = "r3"``.
+When all four are present, CMOR builds ``variant_label`` from them
+(``r3i1p1f1``).
 
-The CMIP7 CV constrains the label and each index with POSIX patterns.
-``realization_index``, ``physics_index`` and ``forcing_index`` are
-one-item lists, so the legacy handling applies and a bare number such as
-``3`` is accepted. ``initialization_index`` and ``variant_label`` have two
-patterns each, so they are checked as ordinary lists: give
-``initialization_index`` with its letter (``i1``), not as ``1``.
+An index may end in lowercase letters only if the CV's pattern for that
+index allows them. The CMIP7 CV allows a date-style initialization index
+with an optional ``a``-``e`` suffix (``i202001a``, giving
+``r1i202001ap1f1``); without such a pattern, a suffix is an error.
+
+The CMIP7 CV constrains the label and each index with POSIX patterns, and
+every pattern requires the letter:
 
 .. code-block:: json
 
@@ -522,8 +523,9 @@ patterns each, so they are checked as ordinary lists: give
      "^r[[:digit:]]\\{1,\\}i[[:digit:]]\\{4\\}[[:digit:]]\\{2\\}[abcde]\\{0,\\}p[[:digit:]]\\{1,\\}f[[:digit:]]\\{1,\\}$"
    ]
 
-CMOR enforces the ``r<N>i<N>p<N>f<N>`` format only when the CV gives
-``variant_label`` a list of allowed values or patterns. If the CV only
+CMOR checks the label only when the CV gives ``variant_label`` a list of
+allowed values or patterns. The label must then have the
+``r<N>i<N>p<N>f<N>`` form or match one of those patterns. If the CV only
 requires the attribute (as obs4MIPs does), any string is accepted.
 
 ``grid_label``
@@ -580,7 +582,8 @@ parent and ``amip`` does not:
   * ``parent_source_id`` must be in the ``source_id`` catalog;
   * ``parent_mip_era`` must equal ``mip_era``;
   * ``parent_time_units`` must look like ``days since YYYY-MM-DD``;
-  * ``parent_variant_label`` must look like ``r1i1p1f1``;
+  * ``parent_variant_label`` must look like ``r1i1p1f1`` or match one of
+    the CV's ``variant_label`` patterns;
   * both branch times must be numbers.
 
 
@@ -647,11 +650,6 @@ Templates copied as required defaults
    is not excluded from experiment defaults, so it can become a global
    attribute. Likewise, an experiment's ``description`` is written as a
    global attribute (CMIP7 does this).
-
-Date-based ``initialization_index`` pattern
-   The CMIP7 CV's second ``initialization_index`` and ``variant_label``
-   patterns allow a date-style index such as ``i202001a``. CMOR requires
-   each index to be a positive integer, so such values are rejected.
 
 ``license`` text in object form
    When ``license`` is an object, CMOR accepts any ``license`` text you

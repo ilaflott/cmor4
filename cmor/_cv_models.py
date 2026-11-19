@@ -585,8 +585,14 @@ class ExperimentComponent(_CVModel):
         experiment_id: Any,
         metadata: Mapping[str, Any],
         sources: SourceComponent | None,
+        variant_label: ChoiceMatcher | None = None,
     ) -> str | None:
-        """Validate parent metadata selected by an experiment entry."""
+        """Validate parent metadata selected by an experiment entry.
+
+        ``variant_label`` holds the CV's ``variant_label`` patterns, used to
+        check ``parent_variant_label``. Without it, the fixed
+        ``r<N>i<N>p<N>f<N>`` form is required.
+        """
 
         entry = self.entry_for(experiment_id)
         if entry is None:
@@ -658,8 +664,8 @@ class ExperimentComponent(_CVModel):
         ):
             parent_time_units = metadata.get("parent_time_units")
             return f"parent_time_units={parent_time_units!r} is invalid."
-        if not re.fullmatch(
-            r"r\d+i\d+p\d+f\d+", str(metadata.get("parent_variant_label"))
+        if not variant_label_matches(
+            str(metadata.get("parent_variant_label")), variant_label
         ):
             return (
                 f"parent_variant_label={metadata.get('parent_variant_label')!r} "
@@ -768,6 +774,21 @@ class GridLabelComponent(_CVModel):
         return None
 
 
+def variant_label_matches(label: str, patterns: ChoiceMatcher | None) -> bool:
+    """Whether ``label`` is a valid variant label.
+
+    A label must have the ``r<N>i<N>p<N>f<N>`` form. If the CV defines
+    ``variant_label`` patterns, the label may instead match one of them
+    (for example, CMIP7 allows ``r1i202001ap1f1``).
+    """
+
+    if re.fullmatch(r"r\d+i\d+p\d+f\d+", label):
+        return True
+    return patterns is not None and any(
+        _choice_accepts(label, choice) for choice in patterns.choices
+    )
+
+
 class VariantLabelComponent(_CVModel):
     """Variant-label assembly and validation of its four RIPF indices.
 
@@ -805,14 +826,20 @@ class VariantLabelComponent(_CVModel):
             )
         return "".join(pieces)
 
-    def validation_error(self, metadata: Mapping[str, Any]) -> str | None:
+    def validation_error(
+        self,
+        metadata: Mapping[str, Any],
+        index_rules: Mapping[str, AttributeRule] | None = None,
+    ) -> str | None:
         """Return the first index range or label format error, if any.
 
         Missing indices and legacy CV regex placeholders are skipped. Literal
         choices and project regexes remain subject to generic attribute rules.
+        An index with a letter suffix (``"i202001a"``) is allowed only if
+        its rule in ``index_rules`` accepts it.
         """
 
-        for key in _RIPF_PREFIXES:
+        for key, prefix in _RIPF_PREFIXES.items():
             value = metadata.get(key)
             if value in (None, ""):
                 continue
@@ -822,10 +849,19 @@ class VariantLabelComponent(_CVModel):
             error = ripf_index_error(key, value)
             if error is not None:
                 return error
+            if re.fullmatch(rf"{prefix}\d+[a-z]+", value_str) and not (
+                index_rules is not None
+                and (rule := index_rules.get(key)) is not None
+                and isinstance(rule.matcher, ChoiceMatcher)
+                and rule.matcher.accepts(value_str, metadata)
+            ):
+                return (
+                    f"{key}={value!r} has a letter suffix that the CV does not allow."
+                )
 
         if self.rule.is_choice_constraint:
             label = self.render(metadata)
-            if label and not re.fullmatch(r"r\d+i\d+p\d+f\d+", label):
+            if label and not variant_label_matches(label, self.choices):
                 origin = (
                     " assembled from RIPF indices"
                     if metadata.get("variant_label") in (None, "")
@@ -833,9 +869,16 @@ class VariantLabelComponent(_CVModel):
                 )
                 return (
                     f"variant_label={label!r}{origin} does not match the required "
-                    "pattern 'r<N>i<N>p<N>f<N>'."
+                    "pattern 'r<N>i<N>p<N>f<N>' or the CV's variant_label patterns."
                 )
         return None
+
+    @property
+    def choices(self) -> ChoiceMatcher | None:
+        """The CV's ``variant_label`` patterns, if it defines a list."""
+
+        matcher = self.rule.matcher
+        return matcher if isinstance(matcher, ChoiceMatcher) else None
 
 
 class DRSComponent(_CVModel):

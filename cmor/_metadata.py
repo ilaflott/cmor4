@@ -87,10 +87,16 @@ _RIPF_MAX: int = 2**31 - 1
 
 
 def ripf_index_error(key: str, value: Any) -> str | None:
-    """Return an index format/range error, preserving optional prefix semantics."""
+    """Return an index format/range error, preserving optional prefix semantics.
+
+    A prefixed index may end in lowercase letters (``"i202001a"``), which
+    some CVs allow. Whether the suffix is allowed is checked against the CV
+    elsewhere; here only the numeric part is checked.
+    """
     prefix = _RIPF_PREFIXES[key]
     text = str(value)
-    numeric = text[1:] if text.startswith(prefix) and len(text) > 1 else text
+    has_prefix = text.startswith(prefix) and len(text) > 1
+    numeric = text[1:].rstrip("abcdefghijklmnopqrstuvwxyz") if has_prefix else text
     try:
         number = int(numeric)
     except (TypeError, ValueError):
