@@ -9,8 +9,9 @@ Set ``calendar`` and ``frequency`` on the time axis. From these, CMOR:
 * sets the dataset's ``frequency`` attribute.
 
 If you set ``frequency``, it must match the variable table. If you leave it
-out, CMOR uses the table's frequency. Fixed fields, such as land area, have
-no time axis.
+out, CMOR uses the table's frequency. The CMIP7 tables do not define a
+frequency, so with CMIP7 you must set ``frequency`` on the time axis.
+Fixed fields, such as land area, have no time axis.
 
 Calendars and bounds
 --------------------
@@ -23,13 +24,14 @@ in the axis's ``units``. This code creates a monthly time axis on a
 
    time_axis = project.axis(
        "time", calendar="noleap", frequency="mon",
-       values=[15.0, 45.0, 74.0],
-       bounds=[[0.0, 30.0], [30.0, 60.0], [60.0, 90.0]],
+       values=[15.5, 45.0, 74.5],
+       bounds=[[0.0, 31.0], [31.0, 59.0], [59.0, 90.0]],
        units="days since 1850-01-01",
    )
 
 Pass ``calendar`` as an argument to the axis, as above. Putting it in the
-axis's ``attrs`` or in the dataset metadata raises an error. A project's CV
+axis's ``attrs`` raises an error when the axis is created. Putting it in
+the dataset metadata raises an error when the file is written. A project's CV
 can still require other calendar-related global attributes; see
 :doc:`controlled_vocabularies`.
 

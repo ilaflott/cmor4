@@ -11,11 +11,11 @@ CMOR is a Python package for creating CF-compliant climate model output in NetCD
 - **xarray integration**: Built on xarray for modern, Pythonic data handling
 - **Minimal metadata entry**: Only specify variable names and data - CF attributes are applied automatically from tables
 - **CF compliance**: Produces Climate and Forecast conventions-compliant NetCDF files
-- **Incremental writes**: Write large datasets one time slice at a time with memory-bounded operation
+- **Incremental writes**: Write large datasets one time chunk at a time with `DatasetWriter` ([guide](https://mauzey1.github.io/cmor4/usage/incremental_writing.html))
 
 ## Installation
 
-Install from source:
+CMOR requires Python 3.11 or newer. Install from source:
 
 ```bash
 git clone https://github.com/mauzey1/cmor4.git
@@ -23,156 +23,79 @@ cd cmor4
 pip install -e .
 ```
 
-**Note:** `DatasetWriter` for incremental writes is included in the standard installation (requires `zarr` and `dask`, which are installed automatically).
-
-For development:
+The project tables are Git submodules. To fetch the CMIP7 tables used in the example below, run this from the repository root:
 
 ```bash
-pip install -e ".[dev]"
-git submodule update --init --recursive
+git submodule update --init project_tables/cmip7-cmor-tables
 ```
 
-## Testing
+See the [installation guide](https://mauzey1.github.io/cmor4/usage/installation.html) for details.
 
-Run the test suite:
+## Example
 
-```bash
-pytest
-```
-
-Run code style checks:
-
-```bash
-ruff check cmor tests
-ruff format cmor tests --check
-```
-
-Run code formatting:
-
-```bash
-ruff check cmor tests --fix
-ruff format cmor tests
-```
-
-## Workflow
-
-1. **Load project tables**: Initialize `ProjectTables` with CV and variable tables
-2. **Define metadata**: Use factory methods to create dataset, variable, and axis objects
-3. **Provide data**: Supply numpy arrays or xarray DataArrays
-4. **Create output**: Call `cmorize()` to validate and write CF-compliant NetCDF
-
-## Example CMOR program
+Run from the repository root:
 
 ```python
 import numpy as np
 import cmor
 
-# Load project tables
+# Load the CMIP7 project tables
 project = cmor.ProjectTables.from_directory(
     "project_tables/cmip7-cmor-tables",
     cv_file="tables-cvs/cmor-cvs.json",
     variable_tables=["tables/CMIP7_atmos.json"],
-    coordinate_table="tables/CMIP7_coordinate.json",
-    formula_table="tables/CMIP7_formula_terms.json",
 )
 
-# Define dataset metadata
+# Describe the dataset; other global attributes are filled in from the CV
 dataset = project.dataset_info({
-    "mip_era": "CMIP7",
     "activity_id": "CMIP",
-    "institution_id": "CCCma",
-    "source_id": "DUMMY-MODEL",
     "experiment_id": "amip",
+    "forcing_index": "f1",
+    "grid_label": "g101",
+    "initialization_index": "i1",
+    "institution_id": "CNRM-CERFACS",
     "license_id": "CC-BY-4.0",
-    "variant_label": "r1i1p1f1",
-    "grid_label": "gn",
+    "nominal_resolution": "100 km",
+    "physics_index": "p1",
+    "realization_index": "r1",
+    "region": "glb",
+    "source_id": "CNRM-ESM2-1e",
+    "outpath": "./output",
 })
 
-# Create variable and axes
-variable = project.variable("tas", missing_value=1.0e20)
+# Select the variable by its CMIP7 branded name; CF attributes come from the table
+variable = project.variable("tas_tavg-h2m-hxy-u")
 
+# Define the coordinates (the 2 m height coordinate is added automatically)
+lat_bounds = np.linspace(-90, 90, 181)
+lon_bounds = np.linspace(0, 360, 361)
 axes = [
-    project.axis("time", frequency="mon", calendar="standard", values=[15.0, 45.0],
-                 bounds=[[0.0, 30.0], [30.0, 60.0]],
+    project.axis("time", calendar="360_day", frequency="mon",
+                 values=[15.0, 45.0], bounds=[[0.0, 30.0], [30.0, 60.0]],
                  units="days since 2000-01-01"),
-    project.axis("lat", values=np.linspace(-90, 90, 180)),
-    project.axis("lon", values=np.linspace(0, 360, 360)),
+    project.axis("latitude", values=(lat_bounds[:-1] + lat_bounds[1:]) / 2,
+                 bounds=np.column_stack([lat_bounds[:-1], lat_bounds[1:]])),
+    project.axis("longitude", values=(lon_bounds[:-1] + lon_bounds[1:]) / 2,
+                 bounds=np.column_stack([lon_bounds[:-1], lon_bounds[1:]])),
 ]
 
-# Prepare data
-data = np.random.randn(2, 180, 360) + 288.0
+# Data in (time, lat, lon) order
+data = 288.0 + np.random.randn(2, 180, 360).astype("f4")
 
-# Write CF-compliant NetCDF file
+# Validate and write the CF-compliant NetCDF file
 path = cmor.cmorize(dataset, variable, axes, data)
 print(f"Created: {path}")
 ```
 
-## Incremental Writes
-
-For large datasets or data produced incrementally (e.g., as a model runs), use `DatasetWriter` to write time slices one at a time without loading the complete time series into memory:
-
-```python
-import cmor
-import numpy as np
-
-project = cmor.ProjectTables.from_directory(...)
-dataset = project.dataset_info({...})
-variable = project.variable("tas")
-
-# Define axes - time axis can be empty (values provided per write)
-axes = [
-    project.axis("time", frequency="mon", calendar="standard", units="days since 2000-01-01"),
-    project.axis("latitude", values=np.linspace(-90, 90, 180)),
-    project.axis("longitude", values=np.linspace(0, 360, 360)),
-]
-
-# Write data incrementally (memory-bounded - never loads full time series)
-with cmor.DatasetWriter(dataset, variable, axes) as writer:
-    for year in range(1850, 2015):
-        # Load one year at a time
-        time_vals, data = load_year(year)  # Your function: returns (12,) and (12, 180, 360)
-        time_bnds = compute_bounds(time_vals)  # Your function: returns (12, 2)
-
-        # Write this year's data
-        writer.write(data, time_values=time_vals, time_bounds=time_bnds)
-        print(f"Wrote year {year}")
-
-# File is automatically finalized and closed
-print(f"Complete dataset written to: {writer.path}")
-```
-
-**Key benefits of DatasetWriter:**
-
-- **Memory-efficient**: Only loads one chunk at a time; total memory usage independent of dataset size
-- **Flexible**: Write data as it becomes available (e.g., monthly output from a running model)
-- **Validated**: Applies same CMOR table validation as `cmorize()`
-- **Automatic cleanup**: Temporary staging files are automatically removed
-- **Append mode**: Extend existing files with new time records (`existing="append"`)
-- **Formula terms**: Supports incremental writes of time-varying zfactors (e.g., surface pressure for hybrid coordinates)
-
-**Advanced features:**
-
-```python
-# Append new time records to an existing file
-with cmor.DatasetWriter(dataset, variable, axes,
-                         path="existing.nc", existing="append") as writer:
-    writer.write(new_data, time_values=new_times, time_bounds=new_bounds)
-
-# Incremental zfactor writes (for hybrid coordinates)
-with cmor.DatasetWriter(dataset, variable, axes, zfactors=zfactors) as writer:
-    writer.write(data, time_values=times, time_bounds=bounds,
-                 zfactors={"ps": surface_pressure_slice})
-```
-
-See the [Incremental Writing documentation](docs/source/usage/incremental_writing.rst) for complete details and examples.
-
-## Example notebooks
-
-Jupyter notebook examples with visualizations are available in [notebooks](./notebooks/)
-
 ## Documentation
 
-CMOR usage examples and API reference can be found on the [documentation site](https://mauzey1.github.io/cmor4/).
+- [Documentation site](https://mauzey1.github.io/cmor4/): user guide (grids, vertical and time coordinates, incremental writes, controlled vocabularies) and API reference
+- [Example notebooks](./notebooks/): Jupyter notebooks with visualizations
+- [Example scripts](./examples/): standalone CMIP7 example programs
+
+## Contributing
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for the development setup, tests, and code style checks.
 
 ## Support
 

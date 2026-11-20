@@ -100,6 +100,7 @@ def equivalent(ds: xr.Dataset) -> xr.Dataset:
     normalized = ds.load().copy(deep=True)
     normalized.attrs.pop("creation_date", None)
     normalized.attrs.pop("history", None)
+    normalized.attrs.pop("tracking_id", None)
     for variable in normalized.variables.values():
         variable.attrs.pop("_FillValue", None)
     return normalized

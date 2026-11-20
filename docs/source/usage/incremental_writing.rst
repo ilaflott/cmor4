@@ -70,11 +70,11 @@ bounds:
    ) as writer:
        writer.write(
            np.full((1, 3, 4), 20.0, dtype="f4"),
-           time_values=[15.5], time_bounds=[[0.0, 31.0]],
+           time_values=[15.0], time_bounds=[[0.0, 30.0]],
        )
        writer.write(
            np.full((1, 3, 4), 21.0, dtype="f4"),
-           time_values=[45.5], time_bounds=[[31.0, 60.0]],
+           time_values=[45.0], time_bounds=[[30.0, 60.0]],
        )
    print(writer.path)
 
@@ -99,7 +99,7 @@ values from the axis, so you pass only the data:
 
    time = project.axis(
        "time", calendar="360_day", frequency="mon",
-       values=[15.5, 45.5], bounds=[[0.0, 31.0], [31.0, 60.0]],
+       values=[15.0, 45.0], bounds=[[0.0, 30.0], [30.0, 60.0]],
        units="days since 1979-01-01",
    )
    complete_axes = [time, *axes[1:]]
@@ -122,7 +122,7 @@ axes as the existing file:
    with cmor.DatasetWriter(dataset, variable, axes, path=output) as writer:
        writer.write(
            np.full((1, 3, 4), 20.0, dtype="f4"),
-           time_values=[15.5], time_bounds=[[0.0, 31.0]],
+           time_values=[15.0], time_bounds=[[0.0, 30.0]],
        )
 
    with cmor.DatasetWriter(
@@ -130,7 +130,7 @@ axes as the existing file:
    ) as writer:
        writer.write(
            np.full((1, 3, 4), 21.0, dtype="f4"),
-           time_values=[45.5], time_bounds=[[31.0, 60.0]],
+           time_values=[45.0], time_bounds=[[30.0, 60.0]],
        )
 
 ``existing`` also accepts ``"error"`` (the default, which fails if the
@@ -159,14 +159,14 @@ time:
    )
    writer.write(
        np.full((1, 3, 4), 20.0, dtype="f4"),
-       time_values=[15.5], time_bounds=[[0.0, 31.0]],
+       time_values=[15.0], time_bounds=[[0.0, 30.0]],
    )
    first_path = writer.close(preserve_definition=True)
 
    writer.path = Path("./output/segment_2.nc")
    writer.write(
        np.full((1, 3, 4), 21.0, dtype="f4"),
-       time_values=[375.5], time_bounds=[[360.0, 391.0]],
+       time_values=[375.0], time_bounds=[[360.0, 390.0]],
    )
    second_path = writer.close()
 
@@ -195,12 +195,12 @@ a time, passing a new surface pressure array with each month:
        path="./output/cl_incremental.nc",
    ) as writer:
        writer.write(
-           cloud_chunk_1, time_values=[15.5],
-           time_bounds=[[0.0, 31.0]], zfactors={"ps": ps_chunk_1},
+           cloud_chunk_1, time_values=[15.0],
+           time_bounds=[[0.0, 30.0]], zfactors={"ps": ps_chunk_1},
        )
        writer.write(
-           cloud_chunk_2, time_values=[45.5],
-           time_bounds=[[31.0, 60.0]], zfactors={"ps": ps_chunk_2},
+           cloud_chunk_2, time_values=[45.0],
+           time_bounds=[[30.0, 60.0]], zfactors={"ps": ps_chunk_2},
        )
 
 Each ``ps`` chunk must have the dimensions listed in the formula table

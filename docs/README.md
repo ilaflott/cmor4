@@ -151,7 +151,7 @@ If Sphinx can't find the `cmor` module, make sure:
 
 If type hints aren't showing:
 1. Verify functions have type annotations in the source code
-2. Check `autodoc_typehints = 'both'` is set in `conf.py`
+2. Check `autodoc_typehints = "description"` is set in `conf.py`
 3. Try a clean rebuild: `make clean && make html`
 
 ### Theme not found

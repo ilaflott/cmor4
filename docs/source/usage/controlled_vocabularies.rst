@@ -6,7 +6,7 @@ Controlled Vocabularies
 A *controlled vocabulary* (CV) is a project-level JSON file. It defines
 which global attributes a dataset must have, which values those attributes
 may take, and which attributes CMOR can fill in for you. Each project
-(CMIP7, obs4MIPs, DRCDP, …) ships its own CV alongside its MIP tables.
+(CMIP7, obs4MIPs, DRCDP, ...) ships its own CV alongside its MIP tables.
 
 This page uses these terms:
 
@@ -96,8 +96,8 @@ A CV file is a JSON object with a single top-level ``CV`` key:
 just the body of ``CV``.
 
 Most keys inside ``CV`` are names of NetCDF global attributes. A few keys
-control CMOR instead: ``DRS``, ``required_global_attributes`` and
-``tracking_id_prefix``.
+control CMOR instead: ``DRS``, ``required_global_attributes``,
+``tracking_id_prefix``, ``tracking_prefix`` and ``version_metadata``.
 
 
 How CMOR reads an ordinary entry
@@ -167,7 +167,8 @@ Lookup objects that inject attributes
 
 Some objects map each key to a record whose values are all strings or
 numbers. Selecting a key from such an object also **writes the record's
-values as global attributes**. For example, an obs4MIPs CV might define:
+values as global attributes**. For example, an obs4MIPs CV might define
+(values shortened for illustration):
 
 .. code-block:: json
 
@@ -283,9 +284,11 @@ Selecting an experiment:
 
 * fills defaults from the record's scalar and one-item-list values, such as
   ``experiment`` or ``activity_id``. These fields are not used as defaults:
-  ``start_year``, ``end_year``, ``tier``, ``parent_activity_id``,
-  ``parent_experiment_id``, ``required_source_type``, ``source_type`` and
-  ``additional_allowed_model_components``;
+  ``start_year``, ``end_year``, ``tier``, ``min_number_yrs_per_sim``,
+  ``parent_activity_id``, ``parent_experiment_id``,
+  ``required_source_type``, ``source_type`` and
+  ``additional_allowed_model_components``. ``experiment`` is checked only
+  when it is a required attribute;
 * checks the other record attributes in your dataset against the record,
   except ``description`` and fields handled separately;
 * restricts ``source_type`` (see :ref:`cv-source-type`);
@@ -417,7 +420,7 @@ commas, optionally followed by a note in parentheses:
 
 .. code-block:: text
 
-   GHG Oz SA Sl Vl BC OC (GHG = CO2, N2O, CH4, …)
+   GHG Oz SA Sl Vl BC OC (GHG = CO2, N2O, CH4, ...)
 
 CMOR ignores everything from the first ``(`` onward. Every remaining
 abbreviation must be in the CV's ``forcing`` list. If the CV has no
@@ -444,13 +447,16 @@ other keys in this section, such as CMIP7's ``*_example`` entries:
 ``tracking_id`` and ``tracking_id_prefix``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-If the CV requires ``tracking_id`` and you do not supply one, CMOR
-generates a UUID. With a prefix the ID has the form ``<prefix>/<uuid4>``.
-Without one it is just the UUID. If ``tracking_id`` is not required and
-you do not supply one, CMOR does not generate it.
+CMOR always sets ``tracking_id`` itself. If the CV requires it, CMOR
+generates a new UUID for every file it writes, including each segment and
+each append. With a prefix the ID has the form ``<prefix>/<uuid4>``.
+Without one it is just the UUID. If ``tracking_id`` is not required, CMOR
+does not write one.
 
-CMOR keeps a ``tracking_id`` you supply. It checks the value only when the
-CV defines a constraint for it.
+You cannot set ``tracking_id`` yourself. If you pass one to
+:meth:`~cmor.ProjectTables.dataset_info`, in ``attrs``, or in a
+:class:`~cmor.DatasetInfo`, CMOR ignores it and emits a ``UserWarning``.
+To control the prefix, set ``tracking_prefix`` instead.
 
 The prefix for a generated ID comes from the first of these that is
 available:
@@ -479,8 +485,10 @@ The CMIP7 CV has no ``tracking_id_prefix``. Instead it has a scalar
 
 The scalar ``tracking_prefix`` becomes a dataset default, so it is used as
 the prefix in option 1: a generated ID looks like
-``hdl:21.14107/1c4f33bb-12a4-46cd-b22f-3d78ada73c58``. ``tracking_prefix``
-is never written as a global attribute.
+``hdl:21.14107/1c4f33bb-12a4-46cd-b22f-3d78ada73c58``. Because the CV
+entry has a single value, a ``tracking_prefix`` you set must equal
+``hdl:21.14107``. ``tracking_prefix`` is never written as a global
+attribute.
 
 .. _cv-variant-label:
 
@@ -488,12 +496,19 @@ is never written as a global attribute.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Each of ``realization_index``, ``initialization_index``, ``physics_index``
-and ``forcing_index`` must be a positive integer. You can give it alone
-(``3``) or with its letter (``r3``). When all four are present, CMOR builds
-``variant_label`` from them (``r3i1p1f1``).
+and ``forcing_index`` must be a positive integer. You can give it as a
+number (``3``) or with its letter (``r3``). If the CV's patterns require
+the letter, CMOR adds it, so the file has ``realization_index = "r3"``.
+When all four are present, CMOR builds ``variant_label`` from them
+(``r3i1p1f1``).
 
-The CMIP7 CV constrains the label and each index with legacy POSIX
-patterns (see :ref:`cv-legacy-posix-regex`):
+An index may end in lowercase letters only if the CV's pattern for that
+index allows them. The CMIP7 CV allows a date-style initialization index
+with an optional ``a``-``e`` suffix (``i202001a``, giving
+``r1i202001ap1f1``); without such a pattern, a suffix is an error.
+
+The CMIP7 CV constrains the label and each index with POSIX patterns, and
+every pattern requires the letter:
 
 .. code-block:: json
 
@@ -509,8 +524,9 @@ patterns (see :ref:`cv-legacy-posix-regex`):
      "^r[[:digit:]]\\{1,\\}i[[:digit:]]\\{4\\}[[:digit:]]\\{2\\}[abcde]\\{0,\\}p[[:digit:]]\\{1,\\}f[[:digit:]]\\{1,\\}$"
    ]
 
-CMOR enforces the ``r<N>i<N>p<N>f<N>`` format only when the CV gives
-``variant_label`` a list of allowed values or patterns. If the CV only
+CMOR checks the label only when the CV gives ``variant_label`` a list of
+allowed values or patterns. The label must then have the
+``r<N>i<N>p<N>f<N>`` form or match one of those patterns. If the CV only
 requires the attribute (as obs4MIPs does), any string is accepted.
 
 ``grid_label``
@@ -567,7 +583,8 @@ parent and ``amip`` does not:
   * ``parent_source_id`` must be in the ``source_id`` catalog;
   * ``parent_mip_era`` must equal ``mip_era``;
   * ``parent_time_units`` must look like ``days since YYYY-MM-DD``;
-  * ``parent_variant_label`` must look like ``r1i1p1f1``;
+  * ``parent_variant_label`` must look like ``r1i1p1f1`` or match one of
+    the CV's ``variant_label`` patterns;
   * both branch times must be numbers.
 
 
@@ -629,10 +646,11 @@ Templates copied as required defaults
    If the CV's ``tracking_id_prefix`` is a string, CMOR also writes it as a
    global attribute. A one-item list is not written.
 
-``required_model_components`` as an attribute
+``required_model_components`` and ``description`` as attributes
    A one-item ``required_model_components`` list in an experiment record
    is not excluded from experiment defaults, so it can become a global
-   attribute.
+   attribute. Likewise, an experiment's ``description`` is written as a
+   global attribute (CMIP7 does this).
 
 ``license`` text in object form
    When ``license`` is an object, CMOR accepts any ``license`` text you
