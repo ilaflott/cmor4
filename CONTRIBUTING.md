@@ -57,6 +57,10 @@ ruff format cmor tests
 
 See [docs/README.md](./docs/README.md) for how to build and edit the Sphinx documentation.
 
+The `docs.yaml` workflow builds documentation independently of the `tests.yaml`
+workflow. Pull requests build the documentation; pushes to `main` also deploy
+it to GitHub Pages.
+
 ## Reporting issues
 
 Report bugs and request features via [GitHub Issues](https://github.com/mauzey1/cmor4/issues).
